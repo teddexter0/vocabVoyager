@@ -1,71 +1,148 @@
-# Getting Started with Create React App
+# 📚 VocabVoyager
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> Master 3 powerful words every day with science-backed spaced repetition learning
 
-## Available Scripts
+[![License: All Rights Reserved](https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-2.53.0-green.svg)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.1.11-38B2AC.svg)](https://tailwindcss.com/)
 
-In the project directory, you can run:
+## 🎯 **What is VocabVoyager?**
 
-### `npm start`
+VocabVoyager is a revolutionary vocabulary learning app that uses **science-backed spaced repetition** to help you master advanced English vocabulary. Unlike traditional flashcard apps, we use a unique **two-step learning approach**:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. **Simple Synonyms First** - Learn with easy-to-remember one-word synonyms
+2. **Rich Context Later** - Dive deep into definitions, examples, and contextual usage
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### ✨ **Key Features**
 
-### `npm test`
+- 📅 **Daily 3-Word Sessions** - Bite-sized learning that fits your schedule
+- 🧠 **Spaced Repetition Algorithm** - Scientifically optimized review intervals
+- 🔥 **Streak Tracking** - Build consistent learning habits
+- 📊 **Progress Analytics** - Track your vocabulary growth over time
+- 🎓 **5 Difficulty Levels** - From basic to advanced (450+ words total)
+- 💎 **Freemium Model** - Start free, upgrade for advanced features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 **Live Demo**
 
-### `npm run build`
+**🌐 Web App:** [Coming Soon - Deploy to Vercel]
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**📱 Mobile App:** Coming Q2 2025
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🛠️ **Tech Stack**
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Frontend | Backend | Database | Deployment |
+|----------|---------|----------|------------|
+| React 18 | Supabase | PostgreSQL | Vercel |
+| Tailwind CSS | Supabase Auth | Row Level Security | GitHub Actions |
+| Lucide Icons | Supabase Realtime | Supabase Storage | - |
 
-### `npm run eject`
+## 📋 **Prerequisites**
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- **Node.js** 16.0 or higher
+- **npm** or **yarn**
+- **Supabase account** (free tier available)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## ⚡ **Quick Start**
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/vocabVoyager.git
+cd vocabVoyager
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-## Learn More
+### 3. Environment Setup
+Create `.env.local` in the root directory:
+```env
+REACT_APP_SUPABASE_URL=your_supabase_project_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+REACT_APP_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 4. Database Setup
+1. Create a new Supabase project
+2. Run the SQL commands from `database/schema.sql`
+3. Import sample words: `npm run import-words`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 5. Start Development Server
+```bash
+npm start
+```
 
-### Code Splitting
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 📊 **Database Schema**
 
-### Analyzing the Bundle Size
+```sql
+-- Core tables
+words (id, word, synonym, definition, example, context, level, difficulty)
+user_progress (user_id, streak, words_learned, current_level, is_premium)
+daily_sessions (user_id, session_date, words_shown, completed)
+user_word_progress (user_id, word_id, mastery_level, next_review)
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🎮 **How It Works**
 
-### Making a Progressive Web App
+### Learning Flow
+1. **Sign Up** → Create your account
+2. **Daily Session** → Get 3 curated words based on your level
+3. **Guess First** → Try to understand words using simple synonyms
+4. **Learn Deep** → Reveal definitions, examples, and context
+5. **Spaced Repetition** → Words reappear based on your mastery level
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Progression System
+- **Level 1:** Basic words (Difficulty 4-6) - FREE
+- **Level 2:** Intermediate words (Difficulty 6-7) - PREMIUM
+- **Level 3:** Advanced words (Difficulty 7-8) - PREMIUM
+- **Level 4:** Expert words (Difficulty 8-9) - PREMIUM
+- **Level 5:** Master words (Difficulty 9-10) - PREMIUM
 
-### Advanced Configuration
+## 💰 **Business Model**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+| Plan | Price | Features |
+|------|-------|----------|
+| **Free** | $0 | Level 1, Basic tracking, 3 words/day |
+| **Premium** | $4.99/mo | All 5 levels, Advanced analytics, Spaced repetition |
 
-### Deployment
+## 🔒 **Security & Privacy**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- **Authentication:** Supabase Auth with JWT tokens
+- **Database:** Row Level Security (RLS) policies
+- **Privacy:** No tracking, minimal data collection
+- **GDPR Compliant:** Data export/deletion available
 
-### `npm run build` fails to minify
+## 📱 **Mobile App Roadmap**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-# vocabVoyager
+- **Q1 2025:** Web app launch
+- **Q2 2025:** React Native iOS/Android app
+- **Q3 2025:** Push notifications & offline mode
+- **Q4 2025:** Advanced personalization features
+
+## 🤝 **Contributing**
+
+This is a **proprietary project**. Contributions are not accepted.
+
+For bug reports or feature requests, please contact: [support@vocabvoyager.com]
+
+## 📄 **License**
+
+**All Rights Reserved** © 2025 VocabVoyager
+
+This software and its source code are proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
+
+## 📞 **Contact & Support**
+
+- **Website:** [Coming Soon]
+- **Email:** support@vocabvoyager.com
+- **Twitter:** @VocabVoyager
+
+---
+
+**Built with ❤️ for language learners worldwide**
+
+*Master vocabulary, expand your mind, transform your communication. Or if you just find it cool saying these words!*

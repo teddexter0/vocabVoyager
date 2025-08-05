@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, RotateCcw, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader } from 'lucide-react';
+import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
 
 const VocabImprover = () => {

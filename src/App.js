@@ -111,7 +111,8 @@ const loadUserDataSimple = async (userId) => {
     // Load today's words
     const dailyWords = await dbHelpers.getDailyWords(progress.current_level, 3, progress.is_premium);
     console.log('Daily words loaded:', dailyWords);
-    setDailyWords(dailyWords);
+setCurrentWords(dailyWords);
+console.log("✅ Set words into state:", dailyWords);
 
     setLoading(false);
   } catch (error) {
@@ -125,7 +126,7 @@ const loadUserDataSimple = async (userId) => {
       last_visit: new Date().toISOString().split('T')[0],
       is_premium: false
     });
-    setDailyWords([]);
+    setCurrentWords([])
     setLoading(false);
   }
 };

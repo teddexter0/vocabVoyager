@@ -1,4 +1,4 @@
-// src/App.js
+// src/App.js - Mobile Optimized Version
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
@@ -217,8 +217,8 @@ const VocabImprover = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md">
-          <h2 className="text-2xl font-bold mb-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+          <h2 className="text-xl font-bold mb-4 text-center">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -227,7 +227,7 @@ const VocabImprover = () => {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               required
             />
             <input
@@ -235,14 +235,14 @@ const VocabImprover = () => {
               placeholder="Password (min 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               minLength="6"
               required
             />
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
             >
               {authLoading && <Loader className="w-4 h-4 animate-spin" />}
               {isSignUp ? 'Sign Up' : 'Sign In'}
@@ -250,14 +250,14 @@ const VocabImprover = () => {
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="w-full py-2 text-blue-600 hover:text-blue-800"
+              className="w-full py-2 text-blue-600 hover:text-blue-800 text-sm"
             >
               {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
             </button>
             <button
               type="button"
               onClick={() => setShowAuth(false)}
-              className="w-full py-2 text-gray-600 hover:text-gray-800"
+              className="w-full py-2 text-gray-600 hover:text-gray-800 text-sm"
             >
               Cancel
             </button>
@@ -270,7 +270,7 @@ const VocabImprover = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
           <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
           <p className="text-gray-600">Loading your vocabulary journey...</p>
@@ -283,52 +283,55 @@ const VocabImprover = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="py-20">
-            <h1 className="text-6xl font-bold text-gray-800 mb-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Mobile-first header */}
+          <div className="text-center py-8 sm:py-16">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-gray-800 mb-4">
               📚 Daily Vocab Booster
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 mb-8 px-4">
               Master 3 powerful words every day with our science-backed learning method
             </p>
             
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-2xl font-bold mb-4">🎯 Simple Synonyms First</h3>
-                <p className="text-gray-600">
+            {/* Mobile-optimized feature cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 px-4">
+              <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+                <h3 className="text-lg sm:text-xl font-bold mb-2">🎯 Simple Synonyms First</h3>
+                <p className="text-sm sm:text-base text-gray-600">
                   Learn with easy-to-remember synonyms before diving into full definitions
                 </p>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-2xl font-bold mb-4">🧠 Spaced Repetition</h3>
-                <p className="text-gray-600">
+              <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+                <h3 className="text-lg sm:text-xl font-bold mb-2">🧠 Spaced Repetition</h3>
+                <p className="text-sm sm:text-base text-gray-600">
                   Scientific learning method that optimizes retention over time
                 </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg p-8 mb-8">
-              <h2 className="text-3xl font-bold mb-6">Choose Your Plan</h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-xl font-bold mb-2">Free Trial</h3>
-                  <p className="text-3xl font-bold text-blue-600 mb-4">$0</p>
-                  <ul className="text-left space-y-2 mb-6">
+            {/* Mobile-optimized pricing */}
+            <div className="bg-white rounded-lg p-4 sm:p-6 mb-8 mx-4">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4">Choose Your Plan</h2>
+              <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-bold mb-2">Free Trial</h3>
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 mb-3">$0</p>
+                  <ul className="text-left text-sm space-y-1 mb-4">
                     <li>✅ Level 1 (30 words)</li>
                     <li>✅ Daily 3-word sessions</li>
                     <li>✅ Basic progress tracking</li>
                     <li>❌ Advanced levels</li>
                   </ul>
                 </div>
-                <div className="border-2 border-blue-500 rounded-lg p-6 relative">
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+                <div className="border-2 border-blue-500 rounded-lg p-4 relative">
+                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold">
                       POPULAR
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Premium</h3>
-                  <p className="text-3xl font-bold text-blue-600 mb-4">$4.99/mo</p>
-                  <ul className="text-left space-y-2 mb-6">
+                  <h3 className="text-lg font-bold mb-2 mt-2">Premium</h3>
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 mb-3">$4.99/mo</p>
+                  <ul className="text-left text-sm space-y-1 mb-4">
                     <li>✅ All 5 levels (450 words)</li>
                     <li>✅ Advanced spaced repetition</li>
                     <li>✅ Detailed progress analytics</li>
@@ -340,7 +343,7 @@ const VocabImprover = () => {
 
             <button
               onClick={() => setShowAuth(true)}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
+              className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-base sm:text-lg mx-4"
             >
               Start Learning Today
               <ChevronRight className="w-5 h-5" />
@@ -357,25 +360,25 @@ const VocabImprover = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header with user info */}
-        <div className="flex justify-between items-center mb-8">
+        {/* Mobile-optimized header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-800">📚 Daily Vocab Booster</h1>
-            <p className="text-gray-600">Welcome back! Ready for today's words?</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800">📚 Daily Vocab Booster</h1>
+            <p className="text-sm sm:text-base text-gray-600">Welcome back! Ready for today's words?</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
             {!userProgress.is_premium && (
               <button
                 onClick={upgradeToPremium}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
               >
                 <Crown className="w-4 h-4" />
                 Upgrade
               </button>
             )}
-            <div className="flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4" />
-              <span className="text-sm">{user.email}</span>
+            <div className="flex items-center gap-1 sm:gap-2 text-gray-600 min-w-0">
+              <User className="w-4 h-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm truncate">{user.email}</span>
             </div>
             <button
               onClick={handleSignOut}
@@ -386,68 +389,68 @@ const VocabImprover = () => {
           </div>
         </div>
 
-        {/* Progress Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Target className="w-5 h-5 text-orange-600" />
+        {/* Mobile-optimized progress stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Current Streak</p>
-                <p className="text-2xl font-bold text-gray-800">{userProgress.streak} days</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BookOpen className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Words Learned</p>
-                <p className="text-2xl font-bold text-gray-800">{userProgress.words_learned}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Streak</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">{userProgress.streak}</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Trophy className="w-5 h-5 text-purple-600" />
+          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Level</p>
-                <p className="text-2xl font-bold text-gray-800">{userProgress.current_level}/5</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Words</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">{userProgress.words_learned}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+                <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Level</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">{userProgress.current_level}/5</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="w-5 h-5 text-blue-600" />
+          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Days</p>
-                <p className="text-2xl font-bold text-gray-800">{userProgress.total_days}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Days</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">{userProgress.total_days}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Premium upgrade banner for free users */}
+        {/* Mobile-optimized premium banner */}
         {!userProgress.is_premium && (
-          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg p-6 mb-8 text-white">
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg p-4 sm:p-6 mb-6 text-white">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-xl font-bold mb-2">🔒 Unlock All 5 Levels</h3>
-                <p>Get access to 450+ advanced vocabulary words with personalized learning</p>
+                <h3 className="text-lg sm:text-xl font-bold mb-2">🔒 Unlock All 5 Levels</h3>
+                <p className="text-sm sm:text-base">Get access to 450+ advanced vocabulary words</p>
               </div>
               <button
                 onClick={upgradeToPremium}
-                className="bg-white text-orange-600 px-6 py-3 rounded-lg font-bold hover:bg-gray-100 transition-colors"
+                className="bg-white text-orange-600 px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-bold hover:bg-gray-100 transition-colors text-sm sm:text-base w-full sm:w-auto"
               >
                 Upgrade Now
               </button>
@@ -455,60 +458,62 @@ const VocabImprover = () => {
           </div>
         )}
 
-        {/* Daily Words */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-blue-600" />
+        {/* Mobile-optimized daily words */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               Today's Words
-              {userProgress.is_premium && <Star className="w-5 h-5 text-yellow-500" />}
+              {userProgress.is_premium && <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />}
             </h2>
-            <div className="text-sm text-gray-500">
+            <div className="text-xs sm:text-sm text-gray-500">
               {userProgress.is_premium ? 'Premium • All Levels' : 'Free • Level 1 Only'}
             </div>
           </div>
 
           {currentWords.length === 0 ? (
             <div className="text-center py-8">
-              <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-              <p className="text-gray-600">Loading today's words...</p>
+              <Loader className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <p className="text-sm sm:text-base text-gray-600">Loading today's words...</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {currentWords.map((wordData, index) => (
-                <div key={wordData.id} className="border-l-4 border-blue-500 pl-6 py-4">
-                  <div className="mb-4">
-                    <div className="flex items-center gap-4 mb-2">
-                      <span className="text-3xl font-bold text-gray-800">
+                <div key={wordData.id} className="border-l-4 border-blue-500 pl-4 sm:pl-6 py-3 sm:py-4">
+                  <div className="mb-3 sm:mb-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mb-2">
+                      <span className="text-2xl sm:text-3xl font-bold text-gray-800">
                         {wordData.word}
                       </span>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                        ≈ {wordData.synonym}
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                        Level {wordData.level}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm font-medium">
+                          ≈ {wordData.synonym}
+                        </span>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                          Level {wordData.level}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-gray-600 italic">
+                    <p className="text-sm sm:text-base text-gray-600 italic">
                       Think of it as: "{wordData.synonym}" but with more depth...
                     </p>
                   </div>
 
                   {showDefinitions && (
-                    <div className="mt-4 space-y-3 animate-in slide-in-from-top duration-500">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-1">Definition:</h4>
-                        <p className="text-gray-700">{wordData.definition}</p>
+                    <div className="mt-3 sm:mt-4 space-y-3 animate-in slide-in-from-top duration-500">
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <h4 className="font-semibold text-sm sm:text-base text-gray-800 mb-1">Definition:</h4>
+                        <p className="text-sm sm:text-base text-gray-700">{wordData.definition}</p>
                       </div>
                       
-                      <div className="bg-green-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-1">Example:</h4>
-                        <p className="text-gray-700 italic">"{wordData.example}"</p>
+                      <div className="bg-green-50 rounded-lg p-3 sm:p-4">
+                        <h4 className="font-semibold text-sm sm:text-base text-gray-800 mb-1">Example:</h4>
+                        <p className="text-sm sm:text-base text-gray-700 italic">"{wordData.example}"</p>
                       </div>
                       
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-1">Context:</h4>
-                        <p className="text-gray-700">{wordData.context}</p>
+                      <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
+                        <h4 className="font-semibold text-sm sm:text-base text-gray-800 mb-1">Context:</h4>
+                        <p className="text-sm sm:text-base text-gray-700">{wordData.context}</p>
                       </div>
                     </div>
                   )}
@@ -518,24 +523,24 @@ const VocabImprover = () => {
           )}
 
           {!showDefinitions && currentWords.length > 0 && (
-            <div className="mt-8 text-center">
+            <div className="mt-6 sm:mt-8 text-center">
               <button
                 onClick={handleRevealDefinitions}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
               >
                 Reveal Definitions & Examples
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-xs sm:text-sm text-gray-500 mt-2 px-4">
                 First, try to guess the meanings based on the synonyms above
               </p>
             </div>
           )}
 
           {showDefinitions && currentWords.length > 0 && (
-            <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-              <h3 className="font-semibold text-green-800 mb-2">🎉 Great job!</h3>
-              <p className="text-green-700">
+            <div className="mt-6 sm:mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
+              <h3 className="font-semibold text-green-800 mb-2 text-sm sm:text-base">🎉 Great job!</h3>
+              <p className="text-sm sm:text-base text-green-700">
                 You've completed today's vocabulary session. These words will appear in your 
                 spaced repetition reviews. Come back tomorrow for 3 new words!
               </p>
@@ -543,8 +548,8 @@ const VocabImprover = () => {
           )}
         </div>
 
-        {/* App Info */}
-        <div className="bg-white rounded-lg p-6 text-center text-sm text-gray-600">
+        {/* Mobile-optimized app info */}
+        <div className="bg-white rounded-lg p-4 sm:p-6 text-center text-xs sm:text-sm text-gray-600">
           <p className="mb-2">
             <strong>📈 Learning Method:</strong> Simple synonyms → Full context → Spaced repetition
           </p>

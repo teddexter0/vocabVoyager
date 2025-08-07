@@ -1,4 +1,4 @@
-// src/lib/supabase.js - FIXED VERSION
+// src/lib/supabase.js - FIXED DAILY SESSION LOGIC
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
@@ -15,7 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   }
 })
-
 
 // Helper functions for database operations
 export const dbHelpers = {
@@ -69,27 +68,96 @@ export const dbHelpers = {
     }
   },
 
-  // Get random words for daily session
-  async getDailyWords(level = 1, count = 3, isPremium = false) {
-    console.log('📚 Fetching daily words:', { level, count, isPremium })
+  // 🔥 FIXED: Get today's session FIRST, then create if needed
+  async getTodaySessionOrCreate(userId, level, isPremium) {
+    console.log('📅 Getting or creating today\'s session for:', userId)
     
     try {
-      // First check if words exist at all
-      const { data: allWords, error: countError } = await supabase
-        .from('words')
-        .select('id, level')
+      const today = new Date().toISOString().split('T')[0]
       
-      if (countError) {
-        console.error('❌ Error checking words:', countError)
-        return []
+      // First, try to get existing session
+      const { data: existingSession, error: sessionError } = await supabase
+        .from('daily_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('session_date', today)
+        .single()
+      
+      if (existingSession) {
+        console.log('✅ Found existing session:', existingSession)
+        
+        // Load the words for this session
+        const { data: words, error: wordsError } = await supabase
+          .from('words')
+          .select('*')
+          .in('id', existingSession.words_shown)
+        
+        if (wordsError) {
+          console.error('❌ Error loading session words:', wordsError)
+          return { session: null, words: [] }
+        }
+        
+        console.log('✅ Loaded existing session words:', words.length)
+        return { 
+          session: existingSession, 
+          words: words || [],
+          isNewSession: false
+        }
       }
       
-      console.log('📊 Total words in database:', allWords?.length || 0)
-      console.log('📊 Words by level:', allWords?.reduce((acc, word) => {
-        acc[`level_${word.level}`] = (acc[`level_${word.level}`] || 0) + 1
-        return acc
-      }, {}))
+      // If no session exists, create new one
+      if (sessionError && sessionError.code === 'PGRST116') {
+        console.log('📝 Creating new daily session')
+        
+        // Get words for new session
+        const newWords = await this.getDailyWordsForNewSession(level, 3, isPremium)
+        
+if (newWords.length === 0) {
+  return { session: null, words: [], isNewSession: false, noWords: true }
+}
 
+        
+        const wordIds = newWords.map(w => w.id)
+        
+        // Create the session
+        const { data: newSession, error: createError } = await supabase
+          .from('daily_sessions')
+          .insert({
+            user_id: userId,
+            session_date: today,
+            words_shown: wordIds,
+            completed: false
+          })
+          .select()
+          .single()
+        
+        if (createError) {
+          console.error('❌ Error creating session:', createError)
+          return { session: null, words: [], isNewSession: false }
+        }
+        
+        console.log('✅ Created new session with words:', newWords.map(w => w.word))
+        return { 
+          session: newSession, 
+          words: newWords,
+          isNewSession: true
+        }
+      }
+      
+      console.error('❌ Unexpected error getting session:', sessionError)
+      return { session: null, words: [], isNewSession: false }
+      
+    } catch (err) {
+      console.error('❌ Exception in getTodaySessionOrCreate:', err)
+      return { session: null, words: [], isNewSession: false }
+    }
+  },
+
+  // 🔥 FIXED: Separate function for getting words (only called when creating new session)
+  async getDailyWordsForNewSession(level = 1, count = 3, isPremium = false) {
+    console.log('🆕 Getting words for NEW session:', { level, count, isPremium })
+    
+    try {
       let query = supabase
         .from('words')
         .select('*')
@@ -109,8 +177,6 @@ export const dbHelpers = {
         return []
       }
       
-      console.log('✅ Available words for selection:', data?.length || 0)
-      
       if (!data || data.length === 0) {
         console.warn('⚠️ No words found matching criteria')
         return []
@@ -120,72 +186,46 @@ export const dbHelpers = {
       const shuffled = [...data].sort(() => 0.5 - Math.random())
       const selectedWords = shuffled.slice(0, Math.min(count, data.length))
       
-      console.log('🎲 Selected words:', selectedWords.map(w => w.word))
+      console.log('🎲 Selected words for new session:', selectedWords.map(w => w.word))
       return selectedWords
       
     } catch (err) {
-      console.error('❌ Exception in getDailyWords:', err)
+      console.error('❌ Exception in getDailyWordsForNewSession:', err)
       return []
     }
   },
 
-  // Save daily session
-  async saveDailySession(userId, wordIds, completed = false) {
-    console.log('💾 Saving daily session:', { userId, wordIds, completed })
-    
+  // Mark session as completed
+  async completeSession(sessionId, userId, wordsCount) {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      console.log('✅ Completing session:', sessionId)
       
-      const { data, error } = await supabase
+      // Mark session as completed
+      const { error: sessionError } = await supabase
         .from('daily_sessions')
-        .upsert({
-          user_id: userId,
-          session_date: today,
-          words_shown: wordIds,
-          completed
-        })
-        .select()
-        .single()
+        .update({ completed: true })
+        .eq('id', sessionId)
       
-      if (error) {
-        console.error('❌ Error saving daily session:', error)
-        return null
+      if (sessionError) {
+        console.error('❌ Error completing session:', sessionError)
+        return false
       }
       
-      console.log('✅ Saved daily session:', data)
-      return data
-      
-    } catch (err) {
-      console.error('❌ Exception in saveDailySession:', err)
-      return null
-    }
-  },
-
-  // Get today's session
-  async getTodaySession(userId) {
-    console.log('🔍 Fetching today\'s session for:', userId)
-    
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      
-      const { data, error } = await supabase
-        .from('daily_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('session_date', today)
-        .single()
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ Error fetching today session:', error)
-        return null
+      // Update user progress
+      const currentProgress = await this.getUserProgress(userId)
+      if (currentProgress) {
+        const updatedProgress = {
+          ...currentProgress,
+          words_learned: currentProgress.words_learned + wordsCount
+        }
+        
+        await this.upsertUserProgress(userId, updatedProgress)
       }
       
-      console.log('✅ Today\'s session:', data)
-      return data
-      
+      return true
     } catch (err) {
-      console.error('❌ Exception in getTodaySession:', err)
-      return null
+      console.error('❌ Exception in completeSession:', err)
+      return false
     }
   },
 
@@ -261,7 +301,6 @@ export const authHelpers = {
     }
   },
 
-  // Listen to auth changes
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 Auth state change:', event, session?.user?.email || 'None')

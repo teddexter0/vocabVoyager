@@ -1,10 +1,10 @@
 // scripts/importWords.js
 // Run with: node scripts/importWords.js
 
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY; // Use service role key for bulk operations
 const supabase = createClient(supabaseUrl, supabaseKey);
 

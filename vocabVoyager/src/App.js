@@ -1,4 +1,4 @@
-// src/App.js - Updated with Payment & Spaced Repetition
+// src/App.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader, CreditCard, Brain, CheckCircle, XCircle } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
@@ -91,7 +91,7 @@ const VocabImprover = () => {
     setLearningStats(null);
   };
 
-  // Load user data with spaced repetition
+  // 🔥 FIXED: Load user data with proper function calls
   const loadUserData = async (userId) => {
     try {
       console.log('📊 Loading user data for:', userId);
@@ -112,14 +112,35 @@ const VocabImprover = () => {
       }
 
       setUserProgress(progress);
-      console.log("✅ User progress loaded:", progress)
+      console.log("✅ User progress loaded:", progress);
 
-      // Load learning statistics
-      const stats = await spacedRepetitionService.getLearningStats(userId);
-      setLearningStats(stats);
+      // 🔥 FIXED: Use the correct function name from supabase.js
+      const sessionResult = await dbHelpers.getTodaySessionOrCreate(userId, progress.current_level, progress.is_premium);
+      
+      console.log('📅 Session result:', sessionResult);
 
-      // Load today's session with spaced repetition
-      await loadTodaySession(userId, progress.current_level, progress.is_premium);
+      if (sessionResult.session && sessionResult.words.length > 0) {
+        setCurrentSession(sessionResult.session);
+        setCurrentWords(sessionResult.words);
+        setShowDefinitions(sessionResult.session.completed);
+        
+        console.log(`✅ Session loaded: ${sessionResult.isNewSession ? 'NEW' : 'EXISTING'} with ${sessionResult.words.length} words`);
+      } else if (sessionResult.noWords) {
+        console.warn('⚠️ No words available - check database');
+        setCurrentWords([]);
+      } else {
+        console.warn('⚠️ No session or words loaded');
+        setCurrentWords([]);
+      }
+
+      // Try to load learning statistics (will fail gracefully if tables don't exist)
+      try {
+        const stats = await spacedRepetitionService.getLearningStats(userId);
+        setLearningStats(stats);
+      } catch (statsError) {
+        console.log('📊 Learning stats not available (tables may not exist yet):', statsError.message);
+        setLearningStats(null);
+      }
 
       setLoading(false);
     } catch (error) {
@@ -127,30 +148,6 @@ const VocabImprover = () => {
       setLoading(false);
     }
   };
-
-  // Load today's session using the FIXED session logic
-
-  const loadTodaySession = async (userId, level, isPremium) => {
-  try {
-    console.log('📅 Loading today\'s session...');
-
-    const sessionResult = await spacedRepetitionService.loadOrCreateSession(userId, level, isPremium);
-
-    console.log(sessionResult.isNewSession ? "🎉 New words for today!" : "📘 Resuming today's session");
-
-    if (sessionResult.session && sessionResult.words.length > 0) {
-      setCurrentSession(sessionResult.session);
-      setCurrentWords(sessionResult.words);
-      setShowDefinitions(sessionResult.session.completed);
-      
-      console.log(`✅ Session loaded: ${sessionResult.isNewSession ? 'NEW' : 'EXISTING'} with ${sessionResult.words.length} words`);
-    } else {
-      console.warn('⚠️ No session or words loaded');
-    }
-  } catch (error) {
-    console.error('❌ Error loading session:', error);
-  }
-};
 
   // Handle Pesapal payment callback
   const handlePaymentCallback = async (urlParams) => {
@@ -189,7 +186,12 @@ const VocabImprover = () => {
             alert('🎉 Payment successful! You now have Premium access!');
             
             // Reload session with premium access
-            await loadTodaySession(user.id, userProgress.current_level, true);
+            const sessionResult = await dbHelpers.getTodaySessionOrCreate(user.id, userProgress.current_level, true);
+            if (sessionResult.session && sessionResult.words.length > 0) {
+              setCurrentSession(sessionResult.session);
+              setCurrentWords(sessionResult.words);
+              setShowDefinitions(sessionResult.session.completed);
+            }
           } else {
             alert('❌ Payment verification failed. Please contact support.');
           }
@@ -288,12 +290,16 @@ const VocabImprover = () => {
     
     setReviewAnswers(prev => [...prev, answerRecord]);
     
-    // Update word progress in database
-    await spacedRepetitionService.recordWordAttempt(
-      user.id,
-      currentQuestion.targetWord.id,
-      isCorrect
-    );
+    // Update word progress in database (will fail gracefully if tables don't exist)
+    try {
+      await spacedRepetitionService.recordWordAttempt(
+        user.id,
+        currentQuestion.targetWord.id,
+        isCorrect
+      );
+    } catch (error) {
+      console.log('📝 Could not record word attempt (spaced repetition tables may not exist):', error.message);
+    }
     
     // Show result briefly
     setShowReviewResult({ isCorrect, correctAnswer: currentQuestion.correctAnswer || currentQuestion.targetWord.synonym });
@@ -327,8 +333,12 @@ const VocabImprover = () => {
     setReviewAnswers([]);
     
     // Refresh learning stats
-    const stats = await spacedRepetitionService.getLearningStats(user.id);
-    setLearningStats(stats);
+    try {
+      const stats = await spacedRepetitionService.getLearningStats(user.id);
+      setLearningStats(stats);
+    } catch (error) {
+      console.log('📊 Could not refresh learning stats:', error.message);
+    }
   };
 
   // Auth functions
@@ -370,9 +380,13 @@ const VocabImprover = () => {
         );
         
         if (success) {
-          // Record each word as seen for spaced repetition
-          for (const word of currentWords) {
-            await spacedRepetitionService.recordWordAttempt(user.id, word.id, true);
+          // Record each word as seen for spaced repetition (will fail gracefully if tables don't exist)
+          try {
+            for (const word of currentWords) {
+              await spacedRepetitionService.recordWordAttempt(user.id, word.id, true);
+            }
+          } catch (srError) {
+            console.log('📝 Could not record words for spaced repetition (tables may not exist):', srError.message);
           }
           
           // Refresh user progress
@@ -643,8 +657,8 @@ const VocabImprover = () => {
             <p className="text-gray-600">Smart vocabulary learning with spaced repetition</p>
           </div>
           <div className="flex items-center gap-4">
-            {/* Review button */}
-            {learningStats?.wordsForReviewToday > 0 && (
+            {/* Review button - only show if learning stats are available and have review words */}
+            {learningStats && learningStats.wordsForReviewToday > 0 && (
               <button
                 onClick={startReviewSession}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
@@ -734,7 +748,7 @@ const VocabImprover = () => {
           </div>
         </div>
 
-        {/* Learning Stats Card */}
+        {/* Learning Stats Card - only show if stats are available */}
         {learningStats && (
           <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border">
             <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Learning Progress</h3>
@@ -891,7 +905,7 @@ const VocabImprover = () => {
                 You've completed today's vocabulary session. These words are now in your spaced repetition system.
               </p>
               
-              {learningStats?.wordsForReviewToday > 0 && (
+              {learningStats && learningStats.wordsForReviewToday > 0 && (
                 <div className="flex items-center justify-between">
                   <p className="text-green-700">
                     You have {learningStats.wordsForReviewToday} words ready for review.

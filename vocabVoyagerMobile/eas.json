@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 3.0.0",
+    "appVersionSource": "project"
+  },
+
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rxtqsgcbmsrhgoqgspxp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "your_anon_key"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

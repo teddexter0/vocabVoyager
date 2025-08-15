@@ -47,7 +47,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/vocabVoyager.git
+git clone https://github.com/teddexter0/vocabVoyager.git
 cd vocabVoyager
 ```
 

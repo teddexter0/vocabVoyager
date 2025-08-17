@@ -1,22 +1,73 @@
-// src/lib/pesapal.js - Pesapal Payment Integration
+// src/lib/pesapal.js - HYBRID SOLUTION (Development + Production)
 export const pesapalConfig = {
-  // Replace with your actual Pesapal credentials
-  PESAPAL_CONSUMER_KEY: process.env.REACT_APP_PESAPAL_CONSUMER_KEY || 'qkio1BGWYWMiG6EGSBdyCoIGUbdvTBdGx0bEEgJfbKhyb2F-gLbTdJYhZJFqJdQIhqxJ',
-  PESAPAL_CONSUMER_SECRET: process.env.REACT_APP_PESAPAL_CONSUMER_SECRET || 'QSqhKpRK2QhJoQqJhv6dIaJnJZJ9aQGmUwQqJ',
-  PESAPAL_BASE_URL: 'https://cybqa.pesapal.com/pesapalv3', // Use https://pay.pesapal.com/v3 for production
+  PESAPAL_CONSUMER_KEY: process.env.REACT_APP_PESAPAL_CONSUMER_KEY,
+  PESAPAL_CONSUMER_SECRET: process.env.REACT_APP_PESAPAL_CONSUMER_SECRET,
+  PESAPAL_BASE_URL: process.env.NODE_ENV === 'production' 
+    ? 'https://pay.pesapal.com/v3'  // Production 
+    : 'https://cybqa.pesapal.com/pesapalv3', // Sandbox
   
-  // Your app URLs
-  CALLBACK_URL: process.env.REACT_APP_CALLBACK_URL || 'http://localhost:3000/payment-callback',
-  NOTIFICATION_URL: process.env.REACT_APP_NOTIFICATION_URL || 'http://localhost:3000/api/pesapal-ipn'
+  CALLBACK_URL: process.env.NODE_ENV === 'production'
+    ? 'https://your-vercel-app.vercel.app'  // Update with your actual Vercel URL
+    : window.location.origin,
 }
 
-// Payment service functions
 export const pesapalService = {
-  // Generate OAuth token for Pesapal API
+  // Check if we're in development and can't use real Pesapal due to CORS
+  isDevelopmentMode() {
+    return process.env.NODE_ENV === 'development';
+  },
+
+  // Development mode payment simulation
+  async simulatePayment(userEmail, planType) {
+    const orderId = `DEV_${Date.now()}`;
+    
+    return new Promise((resolve) => {
+      // Show development payment dialog
+      setTimeout(() => {
+        const confirmed = window.confirm(
+          `🔧 DEVELOPMENT MODE PAYMENT\n\n` +
+          `Email: ${userEmail}\n` +
+          `Plan: ${planType} (KES 499/month)\n\n` +
+          `This is a simulation for development.\n` +
+          `In production, users will be redirected to Pesapal.\n\n` +
+          `Click OK to simulate successful payment\n` +
+          `Click Cancel to simulate payment failure`
+        );
+        
+        if (confirmed) {
+          // Simulate successful payment
+          localStorage.setItem('dev_payment_success', JSON.stringify({
+            orderId,
+            email: userEmail,
+            planType,
+            timestamp: Date.now()
+          }));
+          
+          // Simulate redirect back with success
+          window.location.href = `${window.location.origin}?dev_payment=success&OrderTrackingId=${orderId}`;
+          
+          resolve({
+            success: true,
+            redirectUrl: '#dev-payment',
+            orderTrackingId: orderId,
+            isDev: true
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Payment cancelled by user (development mode)'
+          });
+        }
+      }, 500);
+    });
+  },
+
+  // Real Pesapal integration for production
   async getAccessToken() {
     try {
-      console.log('🔑 Getting Pesapal access token...')
+      console.log('🔑 Getting Pesapal access token...');
       
+      // In production, this will work because Vercel can make server-side requests
       const response = await fetch(`${pesapalConfig.PESAPAL_BASE_URL}/api/Auth/RequestToken`, {
         method: 'POST',
         headers: {
@@ -27,27 +78,29 @@ export const pesapalService = {
           consumer_key: pesapalConfig.PESAPAL_CONSUMER_KEY,
           consumer_secret: pesapalConfig.PESAPAL_CONSUMER_SECRET
         })
-      })
+      });
       
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
-      if (data.status === '200') {
-        console.log('✅ Pesapal token obtained')
-        return data.token
+      if (data.status === '200' || data.token) {
+        console.log('✅ Pesapal token obtained');
+        return data.token;
       } else {
-        throw new Error(data.message || 'Failed to get access token')
+        throw new Error(data.message || 'Failed to get access token');
       }
     } catch (error) {
-      console.error('❌ Error getting Pesapal token:', error)
-      throw error
+      console.error('❌ Error getting Pesapal token:', error);
+      throw new Error(`Payment system unavailable: ${error.message}`);
     }
   },
 
-  // Register IPN URL with Pesapal
+  // Register IPN URL
   async registerIPN(token) {
     try {
-      console.log('📡 Registering IPN URL with Pesapal...')
-      
       const response = await fetch(`${pesapalConfig.PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`, {
         method: 'POST',
         headers: {
@@ -56,30 +109,26 @@ export const pesapalService = {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          url: pesapalConfig.NOTIFICATION_URL,
+          url: `${pesapalConfig.CALLBACK_URL}/api/pesapal-ipn`,
           ipn_notification_type: 'GET'
         })
-      })
+      });
       
-      const data = await response.json()
+      const data = await response.json();
       
-      if (data.status === '200') {
-        console.log('✅ IPN URL registered:', data.ipn_id)
-        return data.ipn_id
+      if (data.status === '200' || data.ipn_id) {
+        return data.ipn_id;
       } else {
-        throw new Error(data.message || 'Failed to register IPN')
+        throw new Error(data.message || 'Failed to register IPN');
       }
     } catch (error) {
-      console.error('❌ Error registering IPN:', error)
-      throw error
+      throw error;
     }
   },
 
-  // Submit payment order to Pesapal
+  // Submit payment order
   async submitPaymentOrder(token, ipnId, orderData) {
     try {
-      console.log('💳 Submitting payment order to Pesapal...', orderData)
-      
       const pesapalOrder = {
         id: orderData.orderId,
         currency: 'KES',
@@ -89,16 +138,16 @@ export const pesapalService = {
         notification_id: ipnId,
         billing_address: {
           email_address: orderData.email,
-          phone_number: orderData.phone || '',
+          phone_number: '254700000000',
           country_code: 'KE',
           first_name: orderData.firstName || orderData.email.split('@')[0],
-          last_name: orderData.lastName || 'User',
-          line_1: orderData.address || 'Nairobi, Kenya',
+          last_name: 'User',
+          line_1: 'Nairobi, Kenya',
           city: 'Nairobi',
           state: 'Nairobi',
           postal_code: '00100'
         }
-      }
+      };
       
       const response = await fetch(`${pesapalConfig.PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`, {
         method: 'POST',
@@ -108,34 +157,45 @@ export const pesapalService = {
           'Accept': 'application/json',
         },
         body: JSON.stringify(pesapalOrder)
-      })
+      });
       
-      const data = await response.json()
+      const data = await response.json();
       
-      if (data.status === '200') {
-        console.log('✅ Payment order submitted:', data.order_tracking_id)
+      if (data.status === '200' || data.redirect_url) {
         return {
           success: true,
           orderTrackingId: data.order_tracking_id,
           redirectUrl: data.redirect_url
-        }
+        };
       } else {
-        throw new Error(data.message || 'Failed to submit payment order')
+        throw new Error(data.message || 'Failed to submit payment order');
       }
     } catch (error) {
-      console.error('❌ Error submitting payment order:', error)
       return {
         success: false,
         error: error.message
-      }
+      };
     }
   },
 
   // Check payment status
   async getPaymentStatus(token, orderTrackingId) {
-    try {
-      console.log('🔍 Checking payment status for:', orderTrackingId)
+    // Handle development mode
+    if (orderTrackingId.startsWith('DEV_')) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDev = urlParams.get('dev_payment') === 'success';
       
+      return {
+        success: true,
+        paymentStatus: isDev ? 'Completed' : 'Failed',
+        confirmed: isDev,
+        amount: 499,
+        currency: 'KES',
+        isDevelopment: true
+      };
+    }
+
+    try {
       const response = await fetch(
         `${pesapalConfig.PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
         {
@@ -145,74 +205,79 @@ export const pesapalService = {
             'Accept': 'application/json',
           }
         }
-      )
+      );
       
-      const data = await response.json()
+      const data = await response.json();
       
       if (data.status === '200') {
         return {
           success: true,
           paymentStatus: data.payment_status_description,
-          paymentMethod: data.payment_method,
+          confirmed: data.payment_status_description === 'Completed',
           amount: data.amount,
-          currency: data.currency,
-          merchantReference: data.merchant_reference,
-          paymentAccount: data.payment_account,
-          confirmed: data.payment_status_description === 'Completed'
-        }
+          currency: data.currency
+        };
       } else {
-        throw new Error(data.message || 'Failed to get payment status')
+        throw new Error(data.message || 'Failed to get payment status');
       }
     } catch (error) {
-      console.error('❌ Error checking payment status:', error)
       return {
         success: false,
         error: error.message
-      }
+      };
     }
   },
 
-  // Complete payment flow
+  // 💳 MAIN PAYMENT FLOW - Works in both development and production
   async initiatePayment(userEmail, planType = 'premium') {
     try {
-      // Plan configurations
+      // Check credentials
+      if (!pesapalConfig.PESAPAL_CONSUMER_KEY || !pesapalConfig.PESAPAL_CONSUMER_SECRET) {
+        throw new Error('Pesapal credentials not configured');
+      }
+
       const plans = {
         premium: {
-          amount: 499, // KES 499 for monthly premium
-          description: 'VocabVoyager Premium - Monthly Subscription',
-          duration: 30 // days
+          amount: 499,
+          description: 'VocabVoyager Premium - Monthly Subscription'
         }
-      }
+      };
       
-      const selectedPlan = plans[planType]
+      const selectedPlan = plans[planType];
       if (!selectedPlan) {
-        throw new Error('Invalid plan type')
+        throw new Error('Invalid plan type');
+      }
+
+      // 🔧 DEVELOPMENT MODE: Use simulation due to CORS limitations
+      if (this.isDevelopmentMode()) {
+        console.log('🔧 Development mode - using payment simulation');
+        return await this.simulatePayment(userEmail, planType);
       }
       
-      // Generate unique order ID
-      const orderId = `VV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      // 🚀 PRODUCTION MODE: Use real Pesapal
+      console.log('🚀 Production mode - using real Pesapal');
       
-      // Step 1: Get access token
-      const token = await this.getAccessToken()
+      const orderId = `VV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Step 2: Register IPN (you might want to cache this)
-      const ipnId = await this.registerIPN(token)
+      const token = await this.getAccessToken();
       
-      // Step 3: Submit payment order
+      let ipnId = localStorage.getItem('pesapal_ipn_id');
+      if (!ipnId) {
+        ipnId = await this.registerIPN(token);
+        localStorage.setItem('pesapal_ipn_id', ipnId);
+      }
+      
       const orderData = {
         orderId,
         amount: selectedPlan.amount,
         description: selectedPlan.description,
         email: userEmail,
-        phone: '', // You can collect this in a form
-        firstName: userEmail.split('@')[0],
-        lastName: 'User'
-      }
+        firstName: userEmail.split('@')[0]
+      };
       
-      const paymentResult = await this.submitPaymentOrder(token, ipnId, orderData)
+      const paymentResult = await this.submitPaymentOrder(token, ipnId, orderData);
       
       if (paymentResult.success) {
-        // Store order in localStorage for callback handling
         localStorage.setItem('pending_payment', JSON.stringify({
           orderId,
           orderTrackingId: paymentResult.orderTrackingId,
@@ -220,60 +285,42 @@ export const pesapalService = {
           planType,
           amount: selectedPlan.amount,
           timestamp: Date.now()
-        }))
+        }));
         
         return {
           success: true,
           redirectUrl: paymentResult.redirectUrl,
           orderTrackingId: paymentResult.orderTrackingId
-        }
+        };
       } else {
-        throw new Error(paymentResult.error)
+        throw new Error(paymentResult.error);
       }
       
     } catch (error) {
-      console.error('❌ Payment initiation failed:', error)
+      console.error('❌ Payment initiation failed:', error);
       return {
         success: false,
-        error: error.message
-      }
+        error: error.message || 'Payment system temporarily unavailable'
+      };
     }
   }
-}
+};
 
-// Payment verification service (for callback handling)
+// Export for backward compatibility
 export const paymentVerificationService = {
   async verifyPayment(orderTrackingId) {
     try {
-      const token = await pesapalService.getAccessToken()
-      const status = await pesapalService.getPaymentStatus(token, orderTrackingId)
+      if (orderTrackingId.startsWith('DEV_')) {
+        return await pesapalService.getPaymentStatus(null, orderTrackingId);
+      }
       
-      return status
+      const token = await pesapalService.getAccessToken();
+      return await pesapalService.getPaymentStatus(token, orderTrackingId);
     } catch (error) {
-      console.error('❌ Payment verification failed:', error)
       return {
         success: false,
         error: error.message
-      }
-    }
-  },
-
-  // Handle payment callback from Pesapal
-  handlePaymentCallback(urlParams) {
-    const orderTrackingId = urlParams.get('OrderTrackingId')
-    const merchantReference = urlParams.get('OrderMerchantReference')
-    
-    if (!orderTrackingId) {
-      return {
-        success: false,
-        error: 'Missing order tracking ID'
-      }
-    }
-    
-    return {
-      success: true,
-      orderTrackingId,
-      merchantReference
+      };
     }
   }
-}
+};

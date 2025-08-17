@@ -1,4 +1,4 @@
-// src/lib/supabase.js - FIXED DAILY SESSION LOGIC
+// src/lib/supabase.js - FIXED VERSION (No infinite loops)
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
@@ -20,7 +20,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export const dbHelpers = {
   // Get user progress
   async getUserProgress(userId) {
-    console.log('🔍 Fetching user progress for:', userId)
     try {
       const { data, error } = await supabase
         .from('user_progress')
@@ -33,7 +32,6 @@ export const dbHelpers = {
         return null
       }
       
-      console.log('✅ User progress:', data)
       return data
     } catch (err) {
       console.error('❌ Exception in getUserProgress:', err)
@@ -43,7 +41,6 @@ export const dbHelpers = {
 
   // Create or update user progress
   async upsertUserProgress(userId, progressData) {
-    console.log('💾 Upserting user progress:', { userId, progressData })
     try {
       const { data, error } = await supabase
         .from('user_progress')
@@ -60,7 +57,6 @@ export const dbHelpers = {
         return null
       }
       
-      console.log('✅ Updated user progress:', data)
       return data
     } catch (err) {
       console.error('❌ Exception in upsertUserProgress:', err)
@@ -68,10 +64,8 @@ export const dbHelpers = {
     }
   },
 
-  // 🔥 FIXED: Get today's session FIRST, then create if needed
+  // Get today's session or create new one
   async getTodaySessionOrCreate(userId, level, isPremium) {
-    console.log('📅 Getting or creating today\'s session for:', userId)
-    
     try {
       const today = new Date().toISOString().split('T')[0]
       
@@ -84,8 +78,6 @@ export const dbHelpers = {
         .single()
       
       if (existingSession) {
-        console.log('✅ Found existing session:', existingSession)
-        
         // Load the words for this session
         const { data: words, error: wordsError } = await supabase
           .from('words')
@@ -97,7 +89,6 @@ export const dbHelpers = {
           return { session: null, words: [] }
         }
         
-        console.log('✅ Loaded existing session words:', words.length)
         return { 
           session: existingSession, 
           words: words || [],
@@ -107,15 +98,12 @@ export const dbHelpers = {
       
       // If no session exists, create new one
       if (sessionError && sessionError.code === 'PGRST116') {
-        console.log('📝 Creating new daily session')
-        
         // Get words for new session
         const newWords = await this.getDailyWordsForNewSession(level, 3, isPremium)
         
-if (newWords.length === 0) {
-  return { session: null, words: [], isNewSession: false, noWords: true }
-}
-
+        if (newWords.length === 0) {
+          return { session: null, words: [], isNewSession: false, noWords: true }
+        }
         
         const wordIds = newWords.map(w => w.id)
         
@@ -136,7 +124,6 @@ if (newWords.length === 0) {
           return { session: null, words: [], isNewSession: false }
         }
         
-        console.log('✅ Created new session with words:', newWords.map(w => w.word))
         return { 
           session: newSession, 
           words: newWords,
@@ -153,20 +140,16 @@ if (newWords.length === 0) {
     }
   },
 
-  // 🔥 FIXED: Separate function for getting words (only called when creating new session)
+  // Get words for new session only
   async getDailyWordsForNewSession(level = 1, count = 3, isPremium = false) {
-    console.log('🆕 Getting words for NEW session:', { level, count, isPremium })
-    
     try {
       let query = supabase
         .from('words')
         .select('*')
       
       if (!isPremium) {
-        console.log('🆓 Free user - limiting to level 1')
         query = query.eq('level', 1)
       } else {
-        console.log('💎 Premium user - up to level', level)
         query = query.lte('level', level)
       }
       
@@ -186,7 +169,6 @@ if (newWords.length === 0) {
       const shuffled = [...data].sort(() => 0.5 - Math.random())
       const selectedWords = shuffled.slice(0, Math.min(count, data.length))
       
-      console.log('🎲 Selected words for new session:', selectedWords.map(w => w.word))
       return selectedWords
       
     } catch (err) {
@@ -198,8 +180,6 @@ if (newWords.length === 0) {
   // Mark session as completed
   async completeSession(sessionId, userId, wordsCount) {
     try {
-      console.log('✅ Completing session:', sessionId)
-      
       // Mark session as completed
       const { error: sessionError } = await supabase
         .from('daily_sessions')
@@ -227,40 +207,12 @@ if (newWords.length === 0) {
       console.error('❌ Exception in completeSession:', err)
       return false
     }
-  },
-
-  // Calculate streak
-  calculateStreak(lastVisit) {
-    if (!lastVisit) {
-      console.log('🔄 No previous visit - starting fresh')
-      return { isConsecutive: false, shouldIncrement: false }
-    }
-    
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const last = new Date(lastVisit)
-    last.setHours(0, 0, 0, 0)
-    
-    const diffTime = today - last
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-    
-    console.log('🔄 Streak calculation:', { lastVisit, diffDays })
-    
-    if (diffDays === 1) {
-      return { isConsecutive: true, shouldIncrement: true }
-    } else if (diffDays === 0) {
-      return { isConsecutive: true, shouldIncrement: false } // Same day
-    } else {
-      return { isConsecutive: false, shouldIncrement: false } // Streak broken
-    }
   }
 }
 
-// Auth helpers
+// Auth helpers - FIXED VERSION
 export const authHelpers = {
   async signUp(email, password) {
-    console.log('🔐 Signing up user:', email)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -270,7 +222,6 @@ export const authHelpers = {
   },
 
   async signIn(email, password) {
-    console.log('🔐 Signing in user:', email)
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -280,21 +231,30 @@ export const authHelpers = {
   },
 
   async signOut() {
-    console.log('🔐 Signing out user')
     const { error } = await supabase.auth.signOut()
     if (error) console.error('❌ Sign out error:', error)
     return { error }
   },
 
+  // FIXED: Better session handling
   async getCurrentUser() {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error) {
-        console.error('❌ Error getting current user:', error)
+      // First check if we have a session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError)
         return null
       }
-      console.log('👤 Current user:', user?.email || 'None')
-      return user
+      
+      if (!session) {
+        // No session = not logged in
+        return null
+      }
+      
+      // If we have a session, return the user
+      return session.user
+      
     } catch (err) {
       console.error('❌ Exception getting current user:', err)
       return null
@@ -303,7 +263,6 @@ export const authHelpers = {
 
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 Auth state change:', event, session?.user?.email || 'None')
       callback(event, session)
     })
   }

@@ -9,18 +9,18 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
-      "src": "/static/(.*)",
-      "dest": "/vocabVoyager/build/static/$1"
+      "source": "/static/(.*)",
+      "destination": "/vocabVoyager/build/static/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/vocabVoyager/build/index.html"
+      "source": "/(.*)",
+      "destination": "/vocabVoyager/build/index.html"
     }
   ],
   "headers": [
@@ -32,7 +32,7 @@
           "value": "*"
         },
         {
-          "key": "Access-Control-Allow-Methods", 
+          "key": "Access-Control-Allow-Methods",
           "value": "GET, POST, PUT, DELETE, OPTIONS"
         },
         {

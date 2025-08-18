@@ -1,4 +1,4 @@
-// src/App.js - FIXED AUTH HANDLING
+// src/App.js - COMPLETE SECURE VERSION
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader, CreditCard, Brain, CheckCircle, XCircle } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
@@ -32,35 +32,36 @@ const VocabImprover = () => {
   const [showReviewResult, setShowReviewResult] = useState(false);
   const [learningStats, setLearningStats] = useState(null);
 
-  // FIXED: Better initialization
+  // Initialize app
   useEffect(() => {
     initializeApp();
   }, []); 
-const initializeApp = async () => {
-  try {
-    // Check auth state first
-    const currentUser = await authHelpers.getCurrentUser();
-    setAuthChecked(true);
-    
-    if (currentUser) {
-      setUser(currentUser);
-      await loadUserData(currentUser.id);
-      
-      // ✅ FIXED: Only check payment callback AFTER user is loaded
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('OrderTrackingId') || urlParams.get('dev_payment')) {
-        await handlePaymentCallback(urlParams, currentUser);
-      }
-    }
-  } catch (error) {
-    console.error('Error initializing app:', error);
-    setAuthChecked(true);
-  } finally {
-    setLoading(false);
-  }
-};
 
-  // FIXED: Auth state listener
+  const initializeApp = async () => {
+    try {
+      // Check auth state first
+      const currentUser = await authHelpers.getCurrentUser();
+      setAuthChecked(true);
+      
+      if (currentUser) {
+        setUser(currentUser);
+        await loadUserData(currentUser.id);
+        
+        // Check payment callback AFTER user is loaded
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('OrderTrackingId') || urlParams.get('dev_payment') || urlParams.get('payment_success') || urlParams.get('payment_failed')) {
+          await handlePaymentCallback(urlParams, currentUser);
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing app:', error);
+      setAuthChecked(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auth state listener
   useEffect(() => {
     const { data: { subscription } } = authHelpers.onAuthStateChange(
       async (event, session) => {
@@ -97,7 +98,42 @@ const initializeApp = async () => {
     setLearningStats(null);
   };
 
-  // Load user data
+  // 🔒 Check real premium status from database
+  const checkPremiumStatusFromDatabase = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .gte('created_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('❌ Error checking premium status:', error);
+        return false;
+      }
+
+      const hasValidPayment = data && data.length > 0;
+      
+      if (hasValidPayment) {
+        // Also update user_progress table to sync
+        await dbHelpers.upsertUserProgress(userId, {
+          ...userProgress,
+          is_premium: true,
+          premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
+        });
+      }
+
+      return hasValidPayment;
+    } catch (error) {
+      console.error('❌ Exception checking premium status:', error);
+      return false;
+    }
+  };
+
+  // Load user data with security verification
   const loadUserData = async (userId) => {
     try {
       // Load user progress
@@ -112,6 +148,17 @@ const initializeApp = async () => {
           last_visit: new Date().toISOString().split('T')[0],
           is_premium: false
         };
+        await dbHelpers.upsertUserProgress(userId, progress);
+      }
+
+      // 🔒 VERIFY PREMIUM STATUS FROM DATABASE
+      const realPremiumStatus = await checkPremiumStatusFromDatabase(userId);
+      if (realPremiumStatus !== progress.is_premium) {
+        // Sync the premium status
+        progress.is_premium = realPremiumStatus;
+        if (realPremiumStatus) {
+          progress.premium_until = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString();
+        }
         await dbHelpers.upsertUserProgress(userId, progress);
       }
 
@@ -133,7 +180,6 @@ const initializeApp = async () => {
         const stats = await spacedRepetitionService.getLearningStats(userId);
         setLearningStats(stats);
       } catch (statsError) {
-        // This is fine - spaced repetition might not be set up yet
         setLearningStats(null);
       }
 
@@ -211,112 +257,112 @@ const initializeApp = async () => {
     );
   };
   
-  
-  // ✅ UPDATED: Add guard to prevent multiple payment processing
+  // 🔒 Secure payment callback handler
   const handlePaymentCallback = async (urlParams, currentUser = null) => {
-    // Prevent multiple simultaneous payment processing
     if (paymentProcessing) {
       console.log('⚠️ Payment already being processed, skipping...');
       return;
     }
 
     try {
-      const orderTrackingId = urlParams.get('OrderTrackingId');
-      const isDevPayment = urlParams.get('dev_payment') === 'success';
-      
-      // Use passed user or fall back to state
+      setPaymentProcessing(true);
+
       const userToUse = currentUser || user;
-      
       if (!userToUse) {
         console.log('⚠️ No user found for payment callback, skipping...');
         return;
       }
-      
-      if (orderTrackingId) {
-        setPaymentProcessing(true); // ✅ Set guard
+
+      // 🔒 HANDLE SECURE PAYMENT RESPONSES
+      if (urlParams.get('payment_success') === '1') {
+        const orderTrackingId = urlParams.get('OrderTrackingId');
         
-        console.log('💳 Processing payment callback:', orderTrackingId);
+        // ✅ PAYMENT SUCCESS - Refresh user data
+        await loadUserData(userToUse.id);
         
-        // Check for pending payment data
-        const pendingPayment = localStorage.getItem('pending_payment') || localStorage.getItem('dev_payment_success');
+        alert('🎉 Payment Successful!\n\nWelcome to VocabVoyager Premium!\n\n✅ All 5 difficulty levels unlocked\n✅ Advanced spaced repetition\n✅ Detailed learning analytics\n\nThank you for your support!');
         
-        if (pendingPayment) {
-          const paymentData = JSON.parse(pendingPayment);
+      } else if (urlParams.get('payment_failed') === '1') {
+        // ❌ PAYMENT FAILED
+        alert('❌ Payment Failed!\n\nYour payment could not be processed. Please try again or contact support if money was deducted.');
+        
+      } else if (urlParams.get('payment_error') === '1') {
+        // ❌ PAYMENT ERROR
+        alert('❌ Payment Error!\n\nThere was an error processing your payment. Please try again later.');
+        
+      } else {
+        // Legacy handling for old callback format
+        const orderTrackingId = urlParams.get('OrderTrackingId');
+        const isDevPayment = urlParams.get('dev_payment') === 'success';
+        
+        if (orderTrackingId || isDevPayment) {
+          // Handle as before for backward compatibility
+          const pendingPayment = localStorage.getItem('pending_payment') || localStorage.getItem('dev_payment_success');
           
-          let verification;
-          
-          // Handle development mode payment
-          if (orderTrackingId.startsWith('DEV_') || isDevPayment) {
-            verification = {
-              success: true,
-              confirmed: true,
-              isDevelopment: true
-            };
-          } else {
-            // Handle real Pesapal payment
-            verification = await pesapalService.getPaymentStatus(
-              await pesapalService.getAccessToken(),
-              orderTrackingId
-            );
+          if (pendingPayment) {
+            const paymentData = JSON.parse(pendingPayment);
+            
+            let verification;
+            
+            // Handle development mode payment
+            if (orderTrackingId.startsWith('DEV_') || isDevPayment) {
+              verification = {
+                success: true,
+                confirmed: true,
+                isDevelopment: true
+              };
+            } else {
+              // Handle real Pesapal payment
+              verification = await pesapalService.getPaymentStatus(
+                await pesapalService.getAccessToken(),
+                orderTrackingId
+              );
+            }
+            
+            if (verification.success && verification.confirmed) {
+              // Payment successful - upgrade user
+              const updatedProgress = {
+                ...userProgress,
+                is_premium: true,
+                premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
+              };
+              
+              await dbHelpers.upsertUserProgress(userToUse.id, updatedProgress);
+              setUserProgress(updatedProgress);
+              
+              // Clean up storage
+              localStorage.removeItem('pending_payment');
+              localStorage.removeItem('dev_payment_success');
+              
+              // Show success message
+              const message = verification.isDevelopment 
+                ? '🔧 Development Payment Successful!\n\nYou now have Premium access!\n\n(This was a simulation - no real money was charged)'
+                : '🎉 Payment Successful!\n\nWelcome to VocabVoyager Premium!\n\n✅ All 5 difficulty levels unlocked\n✅ Advanced spaced repetition\n✅ Detailed learning analytics\n\nThank you for your support!';
+              
+              alert(message);
+              
+              // Reload to refresh data
+              await loadUserData(userToUse.id);
+            } else {
+              alert('❌ Payment verification failed. Please contact support if money was deducted.');
+            }
           }
-          
-          if (verification.success && verification.confirmed) {
-            // Payment successful - upgrade user
-            const updatedProgress = {
-              ...userProgress,
-              is_premium: true,
-              premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
-            };
-            
-            await dbHelpers.upsertUserProgress(userToUse.id, updatedProgress);
-            setUserProgress(updatedProgress);
-            
-            // Clean up storage
-            localStorage.removeItem('pending_payment');
-            localStorage.removeItem('dev_payment_success');
-            
-            // Show success message
-            const message = verification.isDevelopment 
-              ? '🔧 Development Payment Successful!\n\nYou now have Premium access!\n\n(This was a simulation - no real money was charged)'
-              : '🎉 Payment Successful!\n\nWelcome to VocabVoyager Premium!\n\n✅ All 5 difficulty levels unlocked\n✅ Advanced spaced repetition\n✅ Detailed learning analytics\n\nThank you for your support!';
-            
-            alert(message);
-            
-            // Clean up URL and reload
-            window.history.replaceState({}, document.title, window.location.pathname);
-            window.location.reload();
-            
-            return; // Exit early
-          } else {
-            alert('❌ Payment verification failed. Please contact support if money was deducted.');
-          }
-        } else {
-          console.log('⚠️ No pending payment data found');
         }
       }
       
-      // Clean up URL 
+      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
       
     } catch (error) {
       console.error('❌ Payment callback error:', error);
-      
-      if (error.message.includes('Cannot read properties of null')) {
-        console.log('⚠️ Payment callback called before user loaded');
-      } else {
-        alert('❌ Payment processing error.');
-      }
-      
-      // Clean up URL on error too
+      alert('❌ Payment processing error. Please contact support if needed.');
       window.history.replaceState({}, document.title, window.location.pathname);
     } finally {
-      setPaymentProcessing(false); // ✅ Always clear guard
+      setPaymentProcessing(false);
     }
   };
 
-
-
-  // Payment handling
+  // 💳 Payment handling with phone collection
   const handleUpgradeToPremium = async () => {
     if (!user) {
       alert('Please sign in first to upgrade to Premium!');
@@ -329,12 +375,32 @@ const initializeApp = async () => {
       return;
     }
 
+    // 📱 COLLECT PHONE NUMBER
+    const phoneNumber = prompt(
+      '📱 Enter your M-Pesa number for payment:\n\n' +
+      'Format: 0727670542 or 254727670542\n\n' +
+      'This will be used for M-Pesa payment and verification.'
+    );
+
+    if (!phoneNumber) {
+      alert('Phone number is required for M-Pesa payment.');
+      return;
+    }
+
+    // Validate phone number
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    if (cleanPhone.length < 9 || cleanPhone.length > 12) {
+      alert('Please enter a valid phone number.\nExample: 0727670542');
+      return;
+    }
+
     const confirmed = window.confirm(
       '💎 Upgrade to VocabVoyager Premium\n\n' +
       '✅ Access all 5 difficulty levels (450+ words)\n' +
       '✅ Advanced spaced repetition algorithm\n' +
       '✅ Detailed learning analytics\n\n' +
-      'Amount: KES 499 per month\n\n' +
+      `Amount: KES 499 per month\n` +
+      `Phone: ${phoneNumber}\n\n` +
       'Proceed to secure Pesapal payment?'
     );
 
@@ -343,7 +409,12 @@ const initializeApp = async () => {
     try {
       setPaymentLoading(true);
       
-      const paymentResult = await pesapalService.initiatePayment(user.email, 'premium');
+      // 💳 PASS PHONE NUMBER TO PAYMENT
+      const paymentResult = await pesapalService.initiatePayment(
+        user.email, 
+        'premium',
+        phoneNumber
+      );
       
       if (paymentResult.success) {
         window.location.href = paymentResult.redirectUrl;

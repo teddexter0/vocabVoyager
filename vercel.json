@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vocabVoyager/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "vocabVoyager/build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/vocabVoyager/build/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/vocabVoyager/build/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods", 
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization, X-Requested-With"
+        }
+      ]
+    }
+  ],
+  "installCommand": "cd vocabVoyager && npm install",
+  "buildCommand": "cd vocabVoyager && npm run build"
+}

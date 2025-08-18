@@ -1,4 +1,4 @@
-// src/lib/pesapal.js - PRODUCTION READY VERSION
+// src/lib/pesapal.js - FIXED VERSION
 export const pesapalConfig = {
   PESAPAL_CONSUMER_KEY: process.env.REACT_APP_PESAPAL_CONSUMER_KEY,
   PESAPAL_CONSUMER_SECRET: process.env.REACT_APP_PESAPAL_CONSUMER_SECRET,
@@ -11,10 +11,7 @@ export const pesapalConfig = {
   // ✅ FIXED: Dynamic callback URL
   get CALLBACK_URL() {
     if (process.env.NODE_ENV === 'production') {
-      // Vercel provides this automatically in production
-      return process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : window.location.origin;
+      return window.location.origin;
     }
     return window.location.origin;
   }
@@ -34,40 +31,52 @@ export const pesapalService = {
             !window.location.hostname.includes('localhost'));
   },
 
-  // ✅ PRODUCTION: Use Vercel serverless function to avoid CORS
+  // ✅ FIXED: Proper API request formatting
   async makeApiRequest(endpoint, method = 'GET', body = null) {
     try {
-      const baseUrl = this.isProductionMode() 
-        ? '/api/pesapal'  // Vercel serverless function
-        : pesapalConfig.PESAPAL_BASE_URL; // Direct API in dev
-
-      const url = this.isProductionMode() 
-        ? `/api/pesapal?endpoint=${encodeURIComponent(endpoint)}&method=${method}`
-        : `${baseUrl}${endpoint}`;
-
-      const options = {
-        method: this.isProductionMode() ? 'POST' : method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      };
-
-      if (body) {
-        options.body = JSON.stringify({
-          pesapalData: body,
-          pesapalEndpoint: endpoint,
-          pesapalMethod: method
+      if (this.isProductionMode()) {
+        // Production: Use serverless function
+        const response = await fetch('/api/pesapal', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            pesapalEndpoint: endpoint,
+            pesapalMethod: method,
+            pesapalData: body
+          })
         });
-      }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return await response.json();
+      } else {
+        // Development: Direct API call
+        const url = `${pesapalConfig.PESAPAL_BASE_URL}${endpoint}`;
+        const options = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          }
+        };
 
-      const response = await fetch(url, options);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
 
-      return await response.json();
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+      }
     } catch (error) {
       console.error('❌ API request failed:', error);
       throw error;
@@ -108,7 +117,8 @@ export const pesapalService = {
     try {
       const data = await this.makeApiRequest('/api/URLSetup/RegisterIPN', 'POST', {
         url: `${pesapalConfig.CALLBACK_URL}/api/pesapal-callback`,
-        ipn_notification_type: 'GET'
+        ipn_notification_type: 'GET',
+        token: token
       });
       
       if (data.status === '200' || data.ipn_id) {
@@ -147,7 +157,8 @@ export const pesapalService = {
           city: orderData.city || 'Nairobi',
           state: orderData.state || 'Nairobi',
           postal_code: orderData.postalCode || '00100'
-        }
+        },
+        token: token
       };
       
       const data = await this.makeApiRequest('/api/Transactions/SubmitOrderRequest', 'POST', pesapalOrder);
@@ -190,7 +201,8 @@ export const pesapalService = {
     try {
       const data = await this.makeApiRequest(
         `/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
-        'GET'
+        'GET',
+        { token: token }
       );
       
       if (data.status === '200') {

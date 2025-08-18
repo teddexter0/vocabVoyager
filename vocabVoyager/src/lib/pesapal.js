@@ -132,54 +132,212 @@ export const pesapalService = {
     }
   },
 
-  // Submit payment order with enhanced validation
-  async submitPaymentOrder(token, ipnId, orderData) {
-    try {
-      // Validate order data
-      if (!orderData.email || !orderData.amount || !orderData.orderId) {
-        throw new Error('Invalid order data provided');
-      }
+  // vocabVoyager/src/lib/pesapal.js - CORRECT submitPaymentOrder function
 
-      const pesapalOrder = {
-        id: orderData.orderId,
-        currency: 'KES',
-        amount: parseFloat(orderData.amount),
-        description: orderData.description || 'VocabVoyager Premium Subscription',
-        callback_url: pesapalConfig.CALLBACK_URL,
-        notification_id: ipnId,
-        billing_address: {
-          email_address: orderData.email,
-          phone_number: orderData.phone || '254700000000',
-          country_code: 'KE',
-          first_name: orderData.firstName || orderData.email.split('@')[0],
-          last_name: orderData.lastName || 'User',
-          line_1: orderData.address || 'Nairobi, Kenya',
-          city: orderData.city || 'Nairobi',
-          state: orderData.state || 'Nairobi',
-          postal_code: orderData.postalCode || '00100'
-        },
-        token: token
-      };
-      
-      const data = await this.makeApiRequest('/api/Transactions/SubmitOrderRequest', 'POST', pesapalOrder);
-      
-      if (data.status === '200' || data.redirect_url) {
-        return {
-          success: true,
-          orderTrackingId: data.order_tracking_id,
-          redirectUrl: data.redirect_url
-        };
-      } else {
-        throw new Error(data.message || 'Failed to submit payment order');
-      }
-    } catch (error) {
-      console.error('❌ Payment order submission failed:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+// Replace the submitPaymentOrder function:
+async submitPaymentOrder(token, ipnId, orderData) {
+  try {
+    // Validate order data
+    if (!orderData.email || !orderData.amount || !orderData.orderId) {
+      throw new Error('Invalid order data provided');
     }
-  },
+
+    // ✅ CORRECT: Use customer's real phone number
+    const customerPhone = orderData.phone || '254700000000'; // Fallback to dummy if no phone
+
+    const pesapalOrder = {
+      id: orderData.orderId,
+      currency: 'KES',
+      amount: parseFloat(orderData.amount),
+      description: orderData.description || 'VocabVoyager Premium Subscription',
+      callback_url: pesapalConfig.CALLBACK_URL,
+      notification_id: ipnId,
+      billing_address: {
+        email_address: orderData.email,
+        phone_number: customerPhone, // ✅ CUSTOMER'S real phone number
+        country_code: 'KE',
+        first_name: orderData.firstName || orderData.email.split('@')[0],
+        last_name: orderData.lastName || 'User',
+        line_1: orderData.address || 'Nairobi, Kenya',
+        city: orderData.city || 'Nairobi',
+        state: orderData.state || 'Nairobi',
+        postal_code: orderData.postalCode || '00100'
+      },
+      token: token
+    };
+    
+    console.log('📱 Sending payment with customer phone:', customerPhone);
+    
+    const data = await this.makeApiRequest('/api/Transactions/SubmitOrderRequest', 'POST', pesapalOrder);
+    
+    if (data.status === '200' || data.redirect_url) {
+      return {
+        success: true,
+        orderTrackingId: data.order_tracking_id,
+        redirectUrl: data.redirect_url
+      };
+    } else {
+      throw new Error(data.message || 'Failed to submit payment order');
+    }
+  } catch (error) {
+    console.error('❌ Payment order submission failed:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+},
+
+// Also update initiatePayment to handle phone parameter:
+async initiatePayment(userEmail, planType = 'premium', customerPhone = null) {
+  try {
+    console.log(`💳 Initiating payment for ${userEmail} - ${planType}`);
+    console.log(`📱 Customer phone: ${customerPhone}`);
+    
+    // Validate inputs
+    if (!userEmail || !userEmail.includes('@')) {
+      throw new Error('Valid email address is required');
+    }
+
+    if (!pesapalConfig.PESAPAL_CONSUMER_KEY || !pesapalConfig.PESAPAL_CONSUMER_SECRET) {
+      throw new Error('Payment system is not properly configured. Please contact support.');
+    }
+
+    const plans = {
+      premium: {
+        amount: 499,
+        description: 'VocabVoyager Premium - Monthly Subscription (KES 499)'
+      }
+    };
+    
+    const selectedPlan = plans[planType];
+    if (!selectedPlan) {
+      throw new Error('Invalid subscription plan selected');
+    }
+
+    // 🔧 DEVELOPMENT MODE: Use simulation
+    if (this.isDevelopmentMode()) {
+      console.log('🔧 Development mode - using payment simulation');
+      return await this.simulatePayment(userEmail, planType);
+    }
+    
+    // 🚀 PRODUCTION MODE: Real Pesapal integration
+    console.log('🚀 Production mode - processing real payment');
+    
+    const orderId = `VV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // 🔒 CREATE PAYMENT RECORD IN DATABASE FIRST
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data: paymentRecord, error: dbError } = await supabase
+      .from('payment_transactions')
+      .insert({
+        user_id: userData.user.id,
+        order_id: orderId,
+        email: userEmail,
+        phone: customerPhone, // ✅ Store customer's phone
+        amount: selectedPlan.amount,
+        currency: 'KES',
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('❌ Failed to create payment record:', dbError);
+      throw new Error('Failed to initialize payment. Please try again.');
+    }
+
+    console.log('✅ Payment record created in database');
+    
+    // Get access token
+    const token = await this.getAccessToken();
+    
+    // Register IPN (or get cached one)
+    let ipnId = localStorage.getItem('pesapal_ipn_id');
+    if (!ipnId) {
+      ipnId = await this.registerIPN(token);
+      localStorage.setItem('pesapal_ipn_id', ipnId);
+    }
+    
+    // ✅ PREPARE ORDER DATA WITH CUSTOMER'S PHONE
+    const orderData = {
+      orderId,
+      amount: selectedPlan.amount,
+      description: selectedPlan.description,
+      email: userEmail,
+      firstName: userEmail.split('@')[0],
+      lastName: 'User',
+      phone: customerPhone // ✅ Include customer's phone number
+    };
+    
+    // Submit payment order
+    const paymentResult = await this.submitPaymentOrder(token, ipnId, orderData);
+    
+    if (paymentResult.success) {
+      // 🔒 UPDATE PAYMENT RECORD WITH PESAPAL TRACKING ID
+      await supabase
+        .from('payment_transactions')
+        .update({
+          pesapal_tracking_id: paymentResult.orderTrackingId
+        })
+        .eq('id', paymentRecord.id);
+
+      // Store pending payment info (as backup)
+      localStorage.setItem('pending_payment', JSON.stringify({
+        orderId,
+        orderTrackingId: paymentResult.orderTrackingId,
+        email: userEmail,
+        phone: customerPhone, // ✅ Store customer's phone
+        planType,
+        amount: selectedPlan.amount,
+        timestamp: Date.now(),
+        paymentRecordId: paymentRecord.id
+      }));
+      
+      console.log('✅ Payment initiated successfully');
+      
+      return {
+        success: true,
+        redirectUrl: paymentResult.redirectUrl,
+        orderTrackingId: paymentResult.orderTrackingId
+      };
+    } else {
+      // 🔒 MARK PAYMENT AS FAILED
+      await supabase
+        .from('payment_transactions')
+        .update({ status: 'failed' })
+        .eq('id', paymentRecord.id);
+
+      throw new Error(paymentResult.error || 'Payment initiation failed');
+    }
+    
+  } catch (error) {
+    console.error('❌ Payment initiation failed:', error);
+    
+    // Provide user-friendly error messages
+    let userMessage = 'Payment system temporarily unavailable. Please try again later.';
+    
+    if (error.message.includes('credentials')) {
+      userMessage = 'Payment system configuration error. Please contact support.';
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      userMessage = 'Network error. Please check your connection and try again.';
+    } else if (error.message.includes('email')) {
+      userMessage = 'Please provide a valid email address.';
+    } else if (error.message.includes('authenticated')) {
+      userMessage = 'Please sign in again to continue with payment.';
+    }
+    
+    return {
+      success: false,
+      error: userMessage,
+      technicalError: error.message // For debugging
+    };
+  }
+},
 
   // Enhanced payment status check
   async getPaymentStatus(token, orderTrackingId) {
@@ -266,110 +424,113 @@ export const pesapalService = {
       }, 500);
     });
   },
+// vocabVoyager/src/lib/pesapal.js - UPDATE INITIATE PAYMENT FUNCTION
 
-  // 💳 MAIN PAYMENT FLOW - Production Ready
-  async initiatePayment(userEmail, planType = 'premium') {
-    try {
-      console.log(`💳 Initiating payment for ${userEmail} - ${planType}`);
-      
-      // Validate inputs
-      if (!userEmail || !userEmail.includes('@')) {
-        throw new Error('Valid email address is required');
-      }
+// Replace the initiatePayment function signature:
+async initiatePayment(userEmail, planType = 'premium', phoneNumber = null) {
+  try {
+    console.log(`💳 Initiating payment for ${userEmail} - ${planType}`);
+    
+    // Validate inputs
+    if (!userEmail || !userEmail.includes('@')) {
+      throw new Error('Valid email address is required');
+    }
 
-      if (!pesapalConfig.PESAPAL_CONSUMER_KEY || !pesapalConfig.PESAPAL_CONSUMER_SECRET) {
-        throw new Error('Payment system is not properly configured. Please contact support.');
-      }
+    if (!pesapalConfig.PESAPAL_CONSUMER_KEY || !pesapalConfig.PESAPAL_CONSUMER_SECRET) {
+      throw new Error('Payment system is not properly configured. Please contact support.');
+    }
 
-      const plans = {
-        premium: {
-          amount: 499,
-          description: 'VocabVoyager Premium - Monthly Subscription (KES 499)'
-        }
-      };
-      
-      const selectedPlan = plans[planType];
-      if (!selectedPlan) {
-        throw new Error('Invalid subscription plan selected');
+    const plans = {
+      premium: {
+        amount: 499,
+        description: 'VocabVoyager Premium - Monthly Subscription (KES 499)'
       }
+    };
+    
+    const selectedPlan = plans[planType];
+    if (!selectedPlan) {
+      throw new Error('Invalid subscription plan selected');
+    }
 
-      // 🔧 DEVELOPMENT MODE: Use simulation
-      if (this.isDevelopmentMode()) {
-        console.log('🔧 Development mode - using payment simulation');
-        return await this.simulatePayment(userEmail, planType);
-      }
-      
-      // 🚀 PRODUCTION MODE: Real Pesapal integration
-      console.log('🚀 Production mode - processing real payment');
-      
-      const orderId = `VV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Get access token
-      const token = await this.getAccessToken();
-      
-      // Register IPN (or get cached one)
-      let ipnId = localStorage.getItem('pesapal_ipn_id');
-      if (!ipnId) {
-        ipnId = await this.registerIPN(token);
-        localStorage.setItem('pesapal_ipn_id', ipnId);
-      }
-      
-      // Prepare order data
-      const orderData = {
+    // 🔧 DEVELOPMENT MODE: Use simulation
+    if (this.isDevelopmentMode()) {
+      console.log('🔧 Development mode - using payment simulation');
+      return await this.simulatePayment(userEmail, planType);
+    }
+    
+    // 🚀 PRODUCTION MODE: Real Pesapal integration
+    console.log('🚀 Production mode - processing real payment');
+    
+    const orderId = `VV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Get access token
+    const token = await this.getAccessToken();
+    
+    // Register IPN (or get cached one)
+    let ipnId = localStorage.getItem('pesapal_ipn_id');
+    if (!ipnId) {
+      ipnId = await this.registerIPN(token);
+      localStorage.setItem('pesapal_ipn_id', ipnId);
+    }
+    
+    // ✅ PREPARE ORDER DATA WITH PHONE
+    const orderData = {
+      orderId,
+      amount: selectedPlan.amount,
+      description: selectedPlan.description,
+      email: userEmail,
+      firstName: userEmail.split('@')[0],
+      lastName: 'User',
+      phone: phoneNumber // ✅ Include phone number
+    };
+    
+    // Submit payment order
+    const paymentResult = await this.submitPaymentOrder(token, ipnId, orderData);
+    
+    if (paymentResult.success) {
+      // Store pending payment info
+      localStorage.setItem('pending_payment', JSON.stringify({
         orderId,
-        amount: selectedPlan.amount,
-        description: selectedPlan.description,
+        orderTrackingId: paymentResult.orderTrackingId,
         email: userEmail,
-        firstName: userEmail.split('@')[0],
-        lastName: 'User'
-      };
+        phone: phoneNumber, // ✅ Store phone too
+        planType,
+        amount: selectedPlan.amount,
+        timestamp: Date.now()
+      }));
       
-      // Submit payment order
-      const paymentResult = await this.submitPaymentOrder(token, ipnId, orderData);
-      
-      if (paymentResult.success) {
-        // Store pending payment info
-        localStorage.setItem('pending_payment', JSON.stringify({
-          orderId,
-          orderTrackingId: paymentResult.orderTrackingId,
-          email: userEmail,
-          planType,
-          amount: selectedPlan.amount,
-          timestamp: Date.now()
-        }));
-        
-        console.log('✅ Payment initiated successfully');
-        
-        return {
-          success: true,
-          redirectUrl: paymentResult.redirectUrl,
-          orderTrackingId: paymentResult.orderTrackingId
-        };
-      } else {
-        throw new Error(paymentResult.error || 'Payment initiation failed');
-      }
-      
-    } catch (error) {
-      console.error('❌ Payment initiation failed:', error);
-      
-      // Provide user-friendly error messages
-      let userMessage = 'Payment system temporarily unavailable. Please try again later.';
-      
-      if (error.message.includes('credentials')) {
-        userMessage = 'Payment system configuration error. Please contact support.';
-      } else if (error.message.includes('network') || error.message.includes('fetch')) {
-        userMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.message.includes('email')) {
-        userMessage = 'Please provide a valid email address.';
-      }
+      console.log('✅ Payment initiated successfully');
       
       return {
-        success: false,
-        error: userMessage,
-        technicalError: error.message // For debugging
+        success: true,
+        redirectUrl: paymentResult.redirectUrl,
+        orderTrackingId: paymentResult.orderTrackingId
       };
+    } else {
+      throw new Error(paymentResult.error || 'Payment initiation failed');
     }
+    
+  } catch (error) {
+    console.error('❌ Payment initiation failed:', error);
+    
+    // Provide user-friendly error messages
+    let userMessage = 'Payment system temporarily unavailable. Please try again later.';
+    
+    if (error.message.includes('credentials')) {
+      userMessage = 'Payment system configuration error. Please contact support.';
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      userMessage = 'Network error. Please check your connection and try again.';
+    } else if (error.message.includes('email')) {
+      userMessage = 'Please provide a valid email address.';
+    }
+    
+    return {
+      success: false,
+      error: userMessage,
+      technicalError: error.message // For debugging
+    };
   }
+}
 };
 
 // Export helper for backward compatibility

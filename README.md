@@ -25,7 +25,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 
 ## 🚀 **Live Demo**
 
-**🌐 Web App:** [Coming Soon - Deploy to Vercel]
+**🌐 Web App:** [https://vocab-voyager.vercel.app/]
 
 **📱 Mobile App:** Coming Q2 2025
 
@@ -143,6 +143,6 @@ This software and its source code are proprietary and confidential. Unauthorized
 
 ---
 
-**Built with ❤️ for language learners worldwide**
+**Built with 🧠 for language learners worldwide**
 
 *Master vocabulary, expand your mind, transform your communication. Or if you just find it cool saying these words!*

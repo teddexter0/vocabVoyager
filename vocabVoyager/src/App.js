@@ -361,75 +361,84 @@ const VocabImprover = () => {
       setPaymentProcessing(false);
     }
   };
+  
+  // vocabVoyager/src/App.js - CORRECT handleUpgradeToPremium
 
-  // 💳 Payment handling with phone collection
-  const handleUpgradeToPremium = async () => {
-    if (!user) {
-      alert('Please sign in first to upgrade to Premium!');
-      setShowAuth(true);
-      return;
-    }
+const handleUpgradeToPremium = async () => {
+  if (!user) {
+    alert('Please sign in first to upgrade to Premium!');
+    setShowAuth(true);
+    return;
+  }
 
-    if (userProgress.is_premium) {
-      alert('You already have Premium access! 🎉');
-      return;
-    }
+  if (userProgress.is_premium) {
+    alert('You already have Premium access! 🎉');
+    return;
+  }
 
-    // 📱 COLLECT PHONE NUMBER
-    const phoneNumber = prompt(
-      '📱 Enter your M-Pesa number for payment:\n\n' +
-      'Format: 0727670542 or 254727670542\n\n' +
-      'This will be used for M-Pesa payment and verification.'
+  // ✅ COLLECT CUSTOMER'S M-PESA NUMBER (NOT YOURS)
+  const customerPhone = prompt(
+    '📱 Enter YOUR M-Pesa number for payment:\n\n' +
+    'Format: 0722555444 or 254722555444\n\n' +
+    'This is the number you will pay FROM.\n' +
+    'Example: 0722555444'
+  );
+
+  if (!customerPhone) {
+    alert('Your M-Pesa number is required for payment.');
+    return;
+  }
+
+  // Validate customer's phone number
+  const cleanPhone = customerPhone.replace(/\D/g, '');
+  if (cleanPhone.length < 9 || cleanPhone.length > 12) {
+    alert('Please enter a valid M-Pesa number.\nExample: 0722555444');
+    return;
+  }
+
+  // Format to international format
+  let formattedPhone = cleanPhone;
+  if (formattedPhone.startsWith('0')) {
+    formattedPhone = '254' + formattedPhone.substring(1);
+  } else if (!formattedPhone.startsWith('254')) {
+    formattedPhone = '254' + formattedPhone;
+  }
+
+  const confirmed = window.confirm(
+    '💎 Upgrade to VocabVoyager Premium\n\n' +
+    '✅ Access all 5 difficulty levels (450+ words)\n' +
+    '✅ Advanced spaced repetition algorithm\n' +
+    '✅ Detailed learning analytics\n\n' +
+    `Amount: KES 499 per month\n` +
+    `Your M-Pesa: ${customerPhone}\n\n` +
+    'Proceed to secure payment?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setPaymentLoading(true);
+    
+    // ✅ SEND CUSTOMER'S PHONE TO PESAPAL
+    const paymentResult = await pesapalService.initiatePayment(
+      user.email, 
+      'premium',
+      formattedPhone  // Customer's real phone
     );
-
-    if (!phoneNumber) {
-      alert('Phone number is required for M-Pesa payment.');
-      return;
+    
+    if (paymentResult.success) {
+      window.location.href = paymentResult.redirectUrl;
+    } else {
+      throw new Error(paymentResult.error);
     }
-
-    // Validate phone number
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    if (cleanPhone.length < 9 || cleanPhone.length > 12) {
-      alert('Please enter a valid phone number.\nExample: 0727670542');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      '💎 Upgrade to VocabVoyager Premium\n\n' +
-      '✅ Access all 5 difficulty levels (450+ words)\n' +
-      '✅ Advanced spaced repetition algorithm\n' +
-      '✅ Detailed learning analytics\n\n' +
-      `Amount: KES 499 per month\n` +
-      `Phone: ${phoneNumber}\n\n` +
-      'Proceed to secure Pesapal payment?'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setPaymentLoading(true);
-      
-      // 💳 PASS PHONE NUMBER TO PAYMENT
-      const paymentResult = await pesapalService.initiatePayment(
-        user.email, 
-        'premium',
-        phoneNumber
-      );
-      
-      if (paymentResult.success) {
-        window.location.href = paymentResult.redirectUrl;
-      } else {
-        throw new Error(paymentResult.error);
-      }
-      
-    } catch (error) {
-      console.error('❌ Payment failed:', error);
-      alert('Payment failed: ' + error.message);
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
+    
+  } catch (error) {
+    console.error('❌ Payment failed:', error);
+    alert('Payment failed: ' + error.message);
+  } finally {
+    setPaymentLoading(false);
+  }
+};
   // Review session functions (simplified for space)
   const startReviewSession = async () => {
     try {

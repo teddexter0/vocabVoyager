@@ -1,4 +1,11 @@
-// api/pesapal-callback.js - Payment Callback Handler
+// vocabVoyager/api/pesapal-callback.js - COMPLETE FILE
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
+);
+
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,30 +27,160 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing OrderTrackingId' });
     }
 
-    // Log the payment callback for monitoring
-    console.log(`📊 Payment callback: ${OrderTrackingId}`);
-
-    // In a real implementation, you might want to:
-    // 1. Verify the payment with Pesapal
-    // 2. Update the user's subscription in your database
-    // 3. Send confirmation email
+    // 🔒 VERIFY PAYMENT WITH PESAPAL
+    const isVerified = await verifyPaymentWithPesapal(OrderTrackingId);
     
-    // For now, we'll redirect back to the app with the tracking ID
-    const redirectUrl = process.env.NODE_ENV === 'production'
-      ? `https://${req.headers.host}?OrderTrackingId=${OrderTrackingId}`
-      : `http://localhost:3000?OrderTrackingId=${OrderTrackingId}`;
-
-    // Redirect user back to the app
-    res.redirect(302, redirectUrl);
+    if (isVerified.success && isVerified.confirmed) {
+      // ✅ PAYMENT VERIFIED - Update database
+      await updatePaymentStatus(OrderTrackingId, 'completed', isVerified.data);
+      
+      console.log('✅ Payment verified and user upgraded to premium');
+      
+      // Redirect to success page
+      const successUrl = process.env.NODE_ENV === 'production'
+        ? `https://${req.headers.host}?payment_success=1&OrderTrackingId=${OrderTrackingId}`
+        : `http://localhost:3000?payment_success=1&OrderTrackingId=${OrderTrackingId}`;
+      
+      res.redirect(302, successUrl);
+    } else {
+      // ❌ PAYMENT FAILED
+      await updatePaymentStatus(OrderTrackingId, 'failed', isVerified.data);
+      
+      console.log('❌ Payment verification failed');
+      
+      // Redirect to failure page
+      const failureUrl = process.env.NODE_ENV === 'production'
+        ? `https://${req.headers.host}?payment_failed=1&OrderTrackingId=${OrderTrackingId}`
+        : `http://localhost:3000?payment_failed=1&OrderTrackingId=${OrderTrackingId}`;
+      
+      res.redirect(302, failureUrl);
+    }
 
   } catch (error) {
     console.error('❌ Payment callback error:', error);
     
-    // Redirect to app with error
+    // Log error but still redirect to prevent user confusion
     const errorUrl = process.env.NODE_ENV === 'production'
       ? `https://${req.headers.host}?payment_error=1`
       : `http://localhost:3000?payment_error=1`;
     
     res.redirect(302, errorUrl);
+  }
+}
+
+// 🔒 VERIFY PAYMENT WITH PESAPAL API
+async function verifyPaymentWithPesapal(orderTrackingId) {
+  try {
+    // Get access token
+    const tokenResponse = await fetch('https://pay.pesapal.com/v3/api/Auth/RequestToken', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        consumer_key: process.env.REACT_APP_PESAPAL_CONSUMER_KEY,
+        consumer_secret: process.env.REACT_APP_PESAPAL_CONSUMER_SECRET
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      throw new Error('Failed to get Pesapal token');
+    }
+
+    const tokenData = await tokenResponse.json();
+    const token = tokenData.token;
+
+    // Verify payment status
+    const statusResponse = await fetch(
+      `https://pay.pesapal.com/v3/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        }
+      }
+    );
+
+    if (!statusResponse.ok) {
+      throw new Error('Failed to get payment status');
+    }
+
+    const statusData = await statusResponse.json();
+    
+    return {
+      success: true,
+      confirmed: statusData.payment_status_description === 'Completed',
+      data: statusData
+    };
+
+  } catch (error) {
+    console.error('❌ Payment verification failed:', error);
+    return {
+      success: false,
+      confirmed: false,
+      error: error.message
+    };
+  }
+}
+
+// 🔒 UPDATE PAYMENT STATUS IN DATABASE
+async function updatePaymentStatus(orderTrackingId, status, paymentData) {
+  try {
+    // Find the payment record
+    const { data: payment, error: findError } = await supabase
+      .from('payment_transactions')
+      .select('*')
+      .eq('pesapal_tracking_id', orderTrackingId)
+      .single();
+
+    if (findError) {
+      console.error('❌ Payment record not found:', findError);
+      return false;
+    }
+
+    // Extract phone from payment data if Pesapal provides it
+    const extractedPhone = paymentData?.phone_number || paymentData?.billing_address?.phone_number || null;
+
+    // Update payment status
+    const { error: updateError } = await supabase
+      .from('payment_transactions')
+      .update({
+        status: status,
+        pesapal_status: paymentData?.payment_status_description,
+        payment_method: paymentData?.payment_method,
+        phone: extractedPhone, // Save the real phone number Pesapal used
+        verified_at: new Date().toISOString(),
+        metadata: paymentData || {}
+      })
+      .eq('id', payment.id);
+
+    if (updateError) {
+      console.error('❌ Failed to update payment:', updateError);
+      return false;
+    }
+
+    // If payment completed, update user premium status
+    if (status === 'completed') {
+      const { error: progressError } = await supabase
+        .from('user_progress')
+        .upsert({
+          user_id: payment.user_id,
+          is_premium: true,
+          premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (progressError) {
+        console.error('❌ Failed to update user premium status:', progressError);
+      }
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('❌ Database update failed:', error);
+    return false;
   }
 }

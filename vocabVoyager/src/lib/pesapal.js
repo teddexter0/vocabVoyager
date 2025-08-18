@@ -169,7 +169,8 @@ async submitPaymentOrder(token, ipnId, orderData) {
     console.log('📱 Sending payment with customer phone:', customerPhone);
     
     const data = await this.makeApiRequest('/api/Transactions/SubmitOrderRequest', 'POST', pesapalOrder);
-    
+    // Add this right before the makeApiRequest call:
+console.log('🔍 ABOUT TO SEND TO API:', JSON.stringify(pesapalOrder, null, 2));
     if (data.status === '200' || data.redirect_url) {
       return {
         success: true,

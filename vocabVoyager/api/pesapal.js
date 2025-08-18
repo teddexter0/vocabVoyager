@@ -1,20 +1,16 @@
-// api/pesapal.js - Vercel Serverless Function
-// This handles Pesapal API calls server-side to avoid CORS issues
-
+// vocabVoyager/api/pesapal.js - FIXED VERSION
 export default async function handler(req, res) {
-  // ✅ CORS Headers for production
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  // Only allow POST requests for API calls
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -26,7 +22,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing Pesapal endpoint' });
     }
 
-    // Environment variables (set in Vercel dashboard)
     const PESAPAL_BASE_URL = process.env.NODE_ENV === 'production' 
       ? 'https://pay.pesapal.com/v3'
       : 'https://cybqa.pesapal.com/pesapalv3';
@@ -42,7 +37,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Prepare the request to Pesapal
     const pesapalUrl = `${PESAPAL_BASE_URL}${pesapalEndpoint}`;
     
     const fetchOptions = {
@@ -53,19 +47,18 @@ export default async function handler(req, res) {
       }
     };
 
-    // Add authorization header if we have token data
+    // ✅ CRITICAL FIX: Handle phone number correctly
     if (pesapalData && typeof pesapalData === 'object') {
-      // Check if this is an auth request
       if (pesapalEndpoint.includes('/api/Auth/RequestToken')) {
         fetchOptions.body = JSON.stringify({
           consumer_key: CONSUMER_KEY,
           consumer_secret: CONSUMER_SECRET
         });
       } else {
-        // For other requests, include the data as-is
+        // ✅ For payment orders, preserve the phone number!
+        console.log('📱 Received payment data with phone:', pesapalData.billing_address?.phone_number);
         fetchOptions.body = JSON.stringify(pesapalData);
         
-        // If pesapalData has a token field, use it for authorization
         if (pesapalData.token) {
           fetchOptions.headers['Authorization'] = `Bearer ${pesapalData.token}`;
         }
@@ -73,8 +66,8 @@ export default async function handler(req, res) {
     }
 
     console.log(`📡 Making request to Pesapal: ${pesapalMethod} ${pesapalUrl}`);
+    console.log('📱 Request body phone:', JSON.parse(fetchOptions.body || '{}')?.billing_address?.phone_number);
 
-    // Make the request to Pesapal
     const response = await fetch(pesapalUrl, fetchOptions);
     
     if (!response.ok) {
@@ -95,29 +88,17 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    
     console.log('✅ Pesapal API response received');
     
-    // Return the Pesapal response
     return res.status(200).json(data);
 
   } catch (error) {
     console.error('❌ Serverless function error:', error);
     
-    // Provide detailed error information for debugging
     return res.status(500).json({
       error: 'Internal server error',
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-}
-
-// ✅ IMPORTANT: This config ensures the function works properly
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
 }

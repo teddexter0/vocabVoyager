@@ -24,8 +24,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 - 💎 **Freemium Model** - Start free, upgrade for advanced features
 
 ## 🚀 **Live Demo**
-
-**🌐 Web App:** [https://vocab-voyager.vercel.app/]
+[https://vocab-voyager-teddexter0-4827s-projects.vercel.app/]
 
 **📱 Mobile App:** Coming Q2 2025
 

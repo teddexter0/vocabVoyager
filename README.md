@@ -23,8 +23,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 - 🎓 **5 Difficulty Levels** - From basic to advanced (450+ words total)
 - 💎 **Freemium Model** - Start free, upgrade for advanced features
 
-## 🚀 **Live Demo**
-[https://vocab-voyager-teddexter0-4827s-projects.vercel.app/]
+## 🚀 **Live Demo** [https://vocab-voyager.vercel.app/]
 
 **📱 Mobile App:** Coming Q2 2025
 

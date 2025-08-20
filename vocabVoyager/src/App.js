@@ -1,10 +1,10 @@
-// src/App.js - COMPLETE SECURE VERSION
+// src/App.js - COMPLETE VERSION WITH AI INTEGRATION
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader, CreditCard, Brain, CheckCircle, XCircle } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
 import { pesapalService } from './lib/pesapal';
 import { spacedRepetitionService, reviewQuestionGenerator, reviewSessionTypes } from './lib/spacedRepetition';
-import { useSpacedRepetition } from './utils/spacedRepetition';
+import AILearningAssistant from './components/AILearningAssistant';
 
 const VocabImprover = () => {
   const [user, setUser] = useState(null);
@@ -24,6 +24,8 @@ const VocabImprover = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  
   // Review session states
   const [reviewMode, setReviewMode] = useState(false);
   const [currentReviewQuestion, setCurrentReviewQuestion] = useState(null);
@@ -97,6 +99,7 @@ const VocabImprover = () => {
     setCurrentSession(null);
     setReviewMode(false);
     setLearningStats(null);
+    setShowAIAssistant(false);
   };
 
   // 🔒 Check real premium status from database
@@ -363,83 +366,83 @@ const VocabImprover = () => {
     }
   };
   
-  // vocabVoyager/src/App.js - CORRECT handleUpgradeToPremium
-
-const handleUpgradeToPremium = async () => {
-  if (!user) {
-    alert('Please sign in first to upgrade to Premium!');
-    setShowAuth(true);
-    return;
-  }
-
-  if (userProgress.is_premium) {
-    alert('You already have Premium access! 🎉');
-    return;
-  }
-
-  // ✅ COLLECT CUSTOMER'S M-PESA NUMBER (NOT YOURS)
-  const customerPhone = prompt(
-    '📱 Enter YOUR M-Pesa number for payment:\n\n' +
-    'Format: 0722555444 or 254722555444\n\n' +
-    'This is the number you will pay FROM.\n' +
-    'Example: 0722555444'
-  );
-
-  if (!customerPhone) {
-    alert('Your M-Pesa number is required for payment.');
-    return;
-  }
-
-  // Validate customer's phone number
-  const cleanPhone = customerPhone.replace(/\D/g, '');
-  if (cleanPhone.length < 9 || cleanPhone.length > 12) {
-    alert('Please enter a valid M-Pesa number.\nExample: 0722555444');
-    return;
-  }
-
-  // Format to international format
-  let formattedPhone = cleanPhone;
-  if (formattedPhone.startsWith('0')) {
-    formattedPhone = '254' + formattedPhone.substring(1);
-  } else if (!formattedPhone.startsWith('254')) {
-    formattedPhone = '254' + formattedPhone;
-  }
-
-  const confirmed = window.confirm(
-    '💎 Upgrade to VocabVoyager Premium\n\n' +
-    '✅ Access all 5 difficulty levels (450+ words)\n' +
-    '✅ Advanced spaced repetition algorithm\n' +
-    '✅ Detailed learning analytics\n\n' +
-    `Amount: KES 499 per month\n` +
-    `Your M-Pesa: ${customerPhone}\n\n` +
-    'Proceed to secure payment?'
-  );
-
-  if (!confirmed) return;
-
-  try {
-    setPaymentLoading(true);
-    
-    // ✅ SEND CUSTOMER'S PHONE TO PESAPAL
-    const paymentResult = await pesapalService.initiatePayment(
-      user.email, 
-      'premium',
-      formattedPhone  // Customer's real phone
-    );
-    
-    if (paymentResult.success) {
-      window.location.href = paymentResult.redirectUrl;
-    } else {
-      throw new Error(paymentResult.error);
+  const handleUpgradeToPremium = async () => {
+    if (!user) {
+      alert('Please sign in first to upgrade to Premium!');
+      setShowAuth(true);
+      return;
     }
-    
-  } catch (error) {
-    console.error('❌ Payment failed:', error);
-    alert('Payment failed: ' + error.message);
-  } finally {
-    setPaymentLoading(false);
-  }
-};
+
+    if (userProgress.is_premium) {
+      alert('You already have Premium access! 🎉');
+      return;
+    }
+
+    // ✅ COLLECT CUSTOMER'S M-PESA NUMBER (NOT YOURS)
+    const customerPhone = prompt(
+      '📱 Enter YOUR M-Pesa number for payment:\n\n' +
+      'Format: 0722555444 or 254722555444\n\n' +
+      'This is the number you will pay FROM.\n' +
+      'Example: 0722555444'
+    );
+
+    if (!customerPhone) {
+      alert('Your M-Pesa number is required for payment.');
+      return;
+    }
+
+    // Validate customer's phone number
+    const cleanPhone = customerPhone.replace(/\D/g, '');
+    if (cleanPhone.length < 9 || cleanPhone.length > 12) {
+      alert('Please enter a valid M-Pesa number.\nExample: 0722555444');
+      return;
+    }
+
+    // Format to international format
+    let formattedPhone = cleanPhone;
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '254' + formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('254')) {
+      formattedPhone = '254' + formattedPhone;
+    }
+
+    const confirmed = window.confirm(
+      '💎 Upgrade to VocabVoyager Premium\n\n' +
+      '✅ Access all 5 difficulty levels (450+ words)\n' +
+      '✅ Advanced spaced repetition algorithm\n' +
+      '✅ AI Learning Assistant\n' +
+      '✅ Detailed learning analytics\n\n' +
+      `Amount: KES 499 per month\n` +
+      `Your M-Pesa: ${customerPhone}\n\n` +
+      'Proceed to secure payment?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setPaymentLoading(true);
+      
+      // ✅ SEND CUSTOMER'S PHONE TO PESAPAL
+      const paymentResult = await pesapalService.initiatePayment(
+        user.email, 
+        'premium',
+        formattedPhone  // Customer's real phone
+      );
+      
+      if (paymentResult.success) {
+        window.location.href = paymentResult.redirectUrl;
+      } else {
+        throw new Error(paymentResult.error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Payment failed:', error);
+      alert('Payment failed: ' + error.message);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   // Review session functions (simplified for space)
   const startReviewSession = async () => {
     try {
@@ -499,43 +502,43 @@ const handleUpgradeToPremium = async () => {
   };
 
   const handleRevealDefinitions = async () => {
-  setShowDefinitions(true);
-  
-  if (user && currentSession) {
-    try {
-      const success = await dbHelpers.completeSession(
-        currentSession.id, 
-        user.id, 
-        currentWords.length
-      );
-      
-      if (success) {
-        // ✅ ADD THIS: Record spaced repetition data
-        for (const word of currentWords) {
-          const performance = {
-            isCorrect: true, // Since they completed the session
-            responseTime: 5000, // Estimate or track actual time
-            accuracy: 1.0,
-            consecutiveCorrect: 1
-          };
+    setShowDefinitions(true);
+    
+    if (user && currentSession) {
+      try {
+        const success = await dbHelpers.completeSession(
+          currentSession.id, 
+          user.id, 
+          currentWords.length
+        );
+        
+        if (success) {
+          // ✅ ENHANCED: Record spaced repetition progress for each word
+          for (const word of currentWords) {
+            const performance = {
+              isCorrect: true, // They completed the session
+              responseTime: 5000, // Estimate - could track real time later
+              accuracy: 1.0,
+              consecutiveCorrect: 1
+            };
+            
+            try {
+              await spacedRepetitionService.updateWordProgress(user.id, word.id, performance);
+            } catch (srError) {
+              console.log('Spaced repetition will start working once enhanced system is deployed');
+            }
+          }
           
-          try {
-            await spacedRepetition.updateWordProgress(user.id, word.id, performance);
-          } catch (srError) {
-            console.log('Spaced repetition not ready yet');
+          const updatedProgress = await dbHelpers.getUserProgress(user.id);
+          if (updatedProgress) {
+            setUserProgress(updatedProgress);
           }
         }
-        
-        const updatedProgress = await dbHelpers.getUserProgress(user.id);
-        if (updatedProgress) {
-          setUserProgress(updatedProgress);
-        }
+      } catch (error) {
+        console.error('Error completing session:', error);
       }
-    } catch (error) {
-      console.error('Error completing session:', error);
     }
-  }
-};
+  };
 
   // Auth Modal Component (simplified)
   const AuthModal = () => {
@@ -635,9 +638,9 @@ const handleUpgradeToPremium = async () => {
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h3 className="text-xl font-bold mb-2">📚 Rich Content</h3>
+              <h3 className="text-xl font-bold mb-2">🤖 AI Assistant</h3>
               <p className="text-gray-600">
-                450+ carefully curated words with examples
+                Personalized learning insights and practice
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -689,6 +692,16 @@ const handleUpgradeToPremium = async () => {
                   <CreditCard className="w-4 h-4" />
                 )}
                 {paymentLoading ? 'Processing...' : 'Upgrade KES 499'}
+              </button>
+            )}
+
+            {userProgress.is_premium && (
+              <button
+                onClick={() => setShowAIAssistant(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-colors font-medium"
+              >
+                <Brain className="w-4 h-4" />
+                AI Assistant
               </button>
             )}
             
@@ -764,6 +777,7 @@ const handleUpgradeToPremium = async () => {
                 <h3 className="text-xl font-bold mb-2">💎 Upgrade to Premium</h3>
                 <p className="mb-2">• Access all 5 difficulty levels (450+ words)</p>
                 <p className="mb-2">• Advanced spaced repetition algorithm</p>
+                <p className="mb-2">• AI Learning Assistant with personalized insights</p>
                 <p>• Detailed learning analytics & progress tracking</p>
               </div>
               <div className="text-center">
@@ -800,7 +814,7 @@ const handleUpgradeToPremium = async () => {
               {userProgress.is_premium && <Star className="w-5 h-5 text-yellow-500" />}
             </h2>
             <div className="text-sm text-gray-500">
-              {userProgress.is_premium ? 'Premium • All Levels' : 'Free • Level 1 Only'}
+              {userProgress.is_premium ? 'Premium • All Levels + AI' : 'Free • Level 1 Only'}
             </div>
           </div>
 
@@ -886,8 +900,13 @@ const handleUpgradeToPremium = async () => {
               <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
                 <h3 className="font-semibold text-green-800 mb-2">🎉 Excellent work!</h3>
                 <p className="text-green-700 mb-4">
-                  You've completed today's vocabulary session. These words are now saved to your learning progress. Come back tomorrow for 3 new words!
+                  You've completed today's vocabulary session. These words are now saved to your learning progress and will appear for review based on our smart spaced repetition algorithm. Come back tomorrow for 3 new words!
                 </p>
+                {userProgress.is_premium && (
+                  <p className="text-green-600 text-sm">
+                    💡 <strong>Premium Tip:</strong> Use the AI Assistant to get personalized insights about your learning progress!
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -896,19 +915,29 @@ const handleUpgradeToPremium = async () => {
         {/* App Info */}
         <div className="bg-white rounded-lg p-6 text-center text-sm text-gray-600">
           <p className="mb-2">
-            <strong>🧠 Smart Learning:</strong> Scientifically designed spaced repetition
+            <strong>🧠 Smart Learning:</strong> Scientifically designed spaced repetition with AI insights
           </p>
           <p className="mb-2">
             <strong>📈 Progress:</strong> Level {userProgress.current_level} • {userProgress.words_learned} words learned • {userProgress.streak} day streak
           </p>
           <p className="text-xs text-gray-500">
             {userProgress.is_premium 
-              ? '💎 Premium Account - Full Access to all 450+ words' 
-              : '🆓 Free Account - Upgrade to unlock 450+ advanced words'
+              ? '💎 Premium Account - Full Access to all 450+ words + AI Assistant' 
+              : '🆓 Free Account - Upgrade to unlock 450+ advanced words + AI Assistant'
             }
           </p>
         </div>
       </div>
+
+      {/* AI Assistant Modal */}
+      {showAIAssistant && (
+        <AILearningAssistant
+          userId={user?.id}
+          userProgress={userProgress}
+          isVisible={showAIAssistant}
+          onClose={() => setShowAIAssistant(false)}
+        />
+      )}
     </div>
   );
 };

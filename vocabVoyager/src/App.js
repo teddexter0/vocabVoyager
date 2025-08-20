@@ -4,6 +4,7 @@ import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, 
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
 import { pesapalService } from './lib/pesapal';
 import { spacedRepetitionService, reviewQuestionGenerator, reviewSessionTypes } from './lib/spacedRepetition';
+import { useSpacedRepetition } from './utils/spacedRepetition';
 
 const VocabImprover = () => {
   const [user, setUser] = useState(null);
@@ -498,35 +499,43 @@ const handleUpgradeToPremium = async () => {
   };
 
   const handleRevealDefinitions = async () => {
-    setShowDefinitions(true);
-    
-    if (user && currentSession) {
-      try {
-        const success = await dbHelpers.completeSession(
-          currentSession.id, 
-          user.id, 
-          currentWords.length
-        );
-        
-        if (success) {
-          try {
-            for (const word of currentWords) {
-              await spacedRepetitionService.recordWordAttempt(user.id, word.id, true);
-            }
-          } catch (srError) {
-            // This is fine - spaced repetition might not be set up
-          }
+  setShowDefinitions(true);
+  
+  if (user && currentSession) {
+    try {
+      const success = await dbHelpers.completeSession(
+        currentSession.id, 
+        user.id, 
+        currentWords.length
+      );
+      
+      if (success) {
+        // ✅ ADD THIS: Record spaced repetition data
+        for (const word of currentWords) {
+          const performance = {
+            isCorrect: true, // Since they completed the session
+            responseTime: 5000, // Estimate or track actual time
+            accuracy: 1.0,
+            consecutiveCorrect: 1
+          };
           
-          const updatedProgress = await dbHelpers.getUserProgress(user.id);
-          if (updatedProgress) {
-            setUserProgress(updatedProgress);
+          try {
+            await spacedRepetition.updateWordProgress(user.id, word.id, performance);
+          } catch (srError) {
+            console.log('Spaced repetition not ready yet');
           }
         }
-      } catch (error) {
-        console.error('Error completing session:', error);
+        
+        const updatedProgress = await dbHelpers.getUserProgress(user.id);
+        if (updatedProgress) {
+          setUserProgress(updatedProgress);
+        }
       }
+    } catch (error) {
+      console.error('Error completing session:', error);
     }
-  };
+  }
+};
 
   // Auth Modal Component (simplified)
   const AuthModal = () => {

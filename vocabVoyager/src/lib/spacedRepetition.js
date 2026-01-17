@@ -199,3 +199,20 @@ export const spacedRepetitionService = {
     return sessionWords.sort(() => 0.5 - Math.random());
   }
 };
+
+// Add these exports at the bottom so App.js can see them!
+export const reviewSessionTypes = {
+  MULTIPLE_CHOICE: 'multiple_choice',
+  FILL_BLANK: 'fill_blank',
+  SYNONYM_MATCH: 'synonym_match',
+  DEFINITION_MATCH: 'definition_match'
+};
+
+export const reviewQuestionGenerator = {
+  // If you have logic for these, keep them here, 
+  // otherwise at least export the object so the build passes
+  generateQuestion: (word, type) => {
+    console.log("Generating", type, "for", word);
+    return { word, type };
+  }
+};

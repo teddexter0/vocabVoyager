@@ -1,4 +1,4 @@
-// src/lib/supabase.js - PRODUCTION READY VERSION
+// src/lib/supabase.js - PRODUCTION READY VERSION WITH ALL MISSING METHODS
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
@@ -13,12 +13,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // ✅ Better error handling
     onError: (error) => {
       console.error('🔐 Supabase auth error:', error);
     }
   },
-  // ✅ Production optimizations
   db: {
     schema: 'public'
   },
@@ -29,8 +27,42 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Enhanced database helpers with better error handling
+// Enhanced database helpers with ALL required methods
 export const dbHelpers = {
+  // ✅ ADDED: This was missing and causing "getRandomWords is not a function"
+  async getRandomWords(limit = 3, level = 1) {
+    try {
+      console.log(`🎲 Fetching ${limit} random words for level ${level}`);
+      
+      const { data, error } = await supabase
+        .from('words')
+        .select('*')
+        .eq('level', level)
+        .limit(limit * 2); // Get extra to shuffle from
+      
+      if (error) {
+        console.error('❌ Error fetching random words:', error);
+        return [];
+      }
+      
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No words found for level', level);
+        return [];
+      }
+      
+      // Shuffle and return requested count
+      const shuffled = [...data].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, limit);
+      
+      console.log(`✅ Selected ${selected.length} random words`);
+      return selected;
+      
+    } catch (error) {
+      console.error('❌ Exception in getRandomWords:', error);
+      return [];
+    }
+  },
+
   // Get user progress with retry logic
   async getUserProgress(userId, retries = 3) {
     if (!userId) {
@@ -51,7 +83,6 @@ export const dbHelpers = {
             console.error('❌ Error fetching user progress:', error);
             return null;
           }
-          // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
@@ -85,7 +116,6 @@ export const dbHelpers = {
         updated_at: new Date().toISOString()
       };
 
-      // ✅ Uses upsert with onConflict to handle existing users correctly
       const { data, error } = await supabase
         .from('user_progress')
         .upsert(validatedData, { onConflict: 'user_id' })
@@ -103,6 +133,7 @@ export const dbHelpers = {
       return null;
     }
   },
+
   // Enhanced session management
   async getTodaySessionOrCreate(userId, level, isPremium) {
     if (!userId) {
@@ -113,7 +144,6 @@ export const dbHelpers = {
     try {
       const today = new Date().toISOString().split('T')[0]
       
-      // First, try to get existing session
       const { data: existingSession, error: sessionError } = await supabase
         .from('daily_sessions')
         .select('*')
@@ -122,7 +152,6 @@ export const dbHelpers = {
         .single()
       
       if (existingSession) {
-        // Load the words for this session
         const { data: words, error: wordsError } = await supabase
           .from('words')
           .select('*')
@@ -140,10 +169,8 @@ export const dbHelpers = {
         }
       }
       
-      // If no session exists, create new one
       if (sessionError && sessionError.code === 'PGRST116') {
-        // Get words for new session
-        const newWords = await this.getDailyWordsForNewSession(level, 3, isPremium)
+        const newWords = await this.getRandomWords(3, level)
         
         if (newWords.length === 0) {
           console.warn('⚠️ No words available for session');
@@ -152,7 +179,6 @@ export const dbHelpers = {
         
         const wordIds = newWords.map(w => w.id)
         
-        // Create the session with retry logic
         let sessionData = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -203,47 +229,7 @@ export const dbHelpers = {
     }
   },
 
-  // Enhanced word fetching with better filtering
-  async getDailyWordsForNewSession(level = 1, count = 3, isPremium = false) {
-    try {
-      let query = supabase.from('words').select('*')
-      
-      // Apply level filtering based on premium status
-      if (!isPremium) {
-        query = query.eq('level', 1)
-      } else {
-        query = query.lte('level', Math.min(level, 5)) // Cap at level 5
-      }
-      
-      // Add ordering for consistency
-      query = query.order('difficulty', { ascending: true })
-      
-      const { data, error } = await query
-      
-      if (error) {
-        console.error('❌ Error fetching words:', error)
-        return []
-      }
-      
-      if (!data || data.length === 0) {
-        console.warn('⚠️ No words found matching criteria')
-        return []
-      }
-      
-      // Shuffle and return requested count
-      const shuffled = [...data].sort(() => 0.5 - Math.random())
-      const selectedWords = shuffled.slice(0, Math.min(count, data.length))
-      
-      console.log(`✅ Selected ${selectedWords.length} words for session`)
-      return selectedWords
-      
-    } catch (err) {
-      console.error('❌ Exception in getDailyWordsForNewSession:', err)
-      return []
-    }
-  },
-
-  // Enhanced session completion with better error handling
+  // Enhanced session completion
   async completeSession(sessionId, userId, wordsCount) {
     if (!sessionId || !userId) {
       console.error('❌ completeSession: Missing required parameters');
@@ -251,7 +237,6 @@ export const dbHelpers = {
     }
 
     try {
-      // Mark session as completed
       const { error: sessionError } = await supabase
         .from('daily_sessions')
         .update({ 
@@ -265,19 +250,17 @@ export const dbHelpers = {
         return false
       }
       
-      // Update user progress
       const currentProgress = await this.getUserProgress(userId)
       if (currentProgress) {
         const today = new Date().toISOString().split('T')[0];
         const lastVisit = currentProgress.last_visit;
         const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
-        // Calculate new streak
         let newStreak = currentProgress.streak;
         if (lastVisit === yesterday) {
-          newStreak += 1; // Continue streak
+          newStreak += 1;
         } else if (lastVisit !== today) {
-          newStreak = 1; // Start new streak
+          newStreak = 1;
         }
         
         const updatedProgress = {

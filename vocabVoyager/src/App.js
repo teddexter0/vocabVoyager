@@ -154,13 +154,13 @@ const loadUserData = async (userId) => {
         const progress = await dbHelpers.getUserProgress(userId);
         if (progress) setUserProgress(progress);
 
-        // 2. CHECK FOR DUE REVIEWS (The "Review Lock")
-        const { data: dueWords } = await supabase
-            .from('user_word_progress')
-            .select('*, words(*)')
-            .eq('user_id', userId)
-            .lte('next_review_date', new Date().toISOString())
-            .limit(15); // Don't overwhelm, cap at 15 words
+        
+const { data: dueWords } = await supabase
+    .from('user_word_progress')
+    .select('*, words(*)')
+    .eq('user_id', userId)
+    .lte('next_review_at', new Date().toISOString())  // ✅ CORRECT
+    .limit(15);
 
         if (dueWords && dueWords.length > 5) {
             // 🛑 TRIGGER REVIEW MODE

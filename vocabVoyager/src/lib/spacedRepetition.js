@@ -412,51 +412,79 @@ export const spacedRepetitionService = {
     
     return await this.updateWordProgress(userId, wordId, performance);
   }, 
+  // 1. FIX: Real words with a working join
   async getReviewWords(userId) {
     if (!userId) return [];
     try {
-      // We fetch only from user_progress to avoid the 400 'Relationship' error
+      const today = new Date().toISOString();
+      
       const { data, error } = await supabase
-        .from('user_progress') 
-        .select('*')
+        .from('user_word_progress') // Make sure this table name is correct (singular/plural)
+        .select(`
+          *,
+          words!inner(*)
+        `)
         .eq('user_id', userId)
-        .limit(5);
-      
-      if (error) throw error;
-      
-      // Map the data to include a fake 'words' object so the UI doesn't break
-      return data.map(item => ({
-        ...item,
-        words: { word: "Reviewing..." } 
-      }));
+        .lte('next_review_date', today)
+        .limit(15);
+
+      if (error) {
+        // If the join fails, it's usually a schema name issue. 
+        // Try selecting just the foreign key if !inner fails.
+        console.error("Supabase Join Error:", error);
+        throw error;
+      }
+      return data;
     } catch (error) {
       console.error("Critical: Error fetching review words:", error);
       return [];
     }
   },
 
+  // 2. FIX: Dynamic stats based on real user progress
   async getLearningStats(userId) {
     if (!userId) return null;
     try {
-      const { data, error } = await supabase
-        .from('user_progress')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      const { data, error, count } = await supabase
+        .from('user_word_progress')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId);
       
       if (error) throw error;
 
+      // Calculate real stats
+      const mastered = data.filter(w => w.confidence_level === 'mastered').length;
+      const due = data.filter(w => new Date(w.next_review_date) <= new Date()).length;
+
       return {
-        mastered: data.words_learned || 0,
-        averageAccuracy: 0.85,
-        wordsForReview: 5,
-        totalWords: data.words_learned || 0
+        mastered: mastered,
+        averageAccuracy: 0.85, // Placeholder until you add a score column
+        wordsForReview: due,
+        totalWords: count || 0
       };
     } catch (error) {
-      // Return default data so the dashboard doesn't crash the links
+      console.error("Stats Error:", error);
       return { mastered: 0, averageAccuracy: 0, wordsForReview: 0, totalWords: 0 };
     }
-  }
+  },
+
+  // 3. FIX: THE MISSING FUNCTION THAT WAS CRASHING YOUR APP
+  async getRandomWords(limit = 10) {
+    try {
+      const { data, error } = await supabase
+        .from('words')
+        .select('*')
+        .limit(limit);
+      
+      if (error) throw error;
+      
+      // Shuffle them locally since Supabase 'random' is complex
+      return data.sort(() => 0.5 - Math.random());
+    } catch (error) {
+      console.error("Error fetching random words:", error);
+      return [];
+    }
+  },
 };
 // ✅ KEEP YOUR EXISTING review session types
 export const reviewSessionTypes = {

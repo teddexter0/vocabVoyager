@@ -425,7 +425,7 @@ export const spacedRepetitionService = {
           words!inner(*)
         `)
         .eq('user_id', userId)
-        .lte('next_review_date', today)
+        .lte('next_review_at', today)
         .limit(15);
 
       if (error) throw error;
@@ -463,19 +463,13 @@ export const spacedRepetitionService = {
   },
 
   // ADD THIS: This was missing and causing the "dn.getRandomWords is not a function" crash
-  async getRandomWords(limit = 10) {
-    try {
-      const { data, error } = await supabase
-        .from('words')
-        .select('*')
-        .limit(limit);
-      
-      if (error) throw error;
-      return data.sort(() => 0.5 - Math.random());
-    } catch (error) {
-      console.error("Error fetching random words:", error);
-      return [];
-    }
+ async getRandomWords(limit = 10) {
+    const { data, error } = await supabase
+      .from('words')
+      .select('*')
+      .limit(limit);
+    if (error) throw error;
+    return data.sort(() => 0.5 - Math.random());
   },
 };
 

@@ -448,7 +448,8 @@ export const spacedRepetitionService = {
       if (error) throw error;
 
       const mastered = data.filter(w => w.confidence_level === 'mastered').length;
-      const due = data.filter(w => new Date(w.next_review_date) <= new Date()).length;
+      const due = data.filter(w => new Date(w.next_review_at) <= new Date()).length;
+
 
       return {
         mastered: mastered,

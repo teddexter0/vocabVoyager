@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Brain, MessageCircle, Target, TrendingUp, Lightbulb, Loader, Sparkles, BookOpen } from 'lucide-react';
 // AI logic moved to /api/ai/quiz
 import { spacedRepetitionService } from '../lib/spacedRepetition';
-import { VocabAIAssistant } from '../lib/openAIAssistant';
+import { VocabAI } from '../lib/openAIAssistant';
 
-const vocabAI = new VocabAIAssistant();
+const vocabAI = new VocabAI();
 const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [activeTab, setActiveTab] = useState('insights');
   const [aiContent, setAIContent] = useState({});

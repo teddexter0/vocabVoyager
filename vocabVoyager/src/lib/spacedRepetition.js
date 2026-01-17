@@ -100,18 +100,26 @@ export const spacedRepetitionService = {
     
     return interval;
   },
+// src/lib/spacedRepetition.js
+ calculateNextReviewDate: (repetitionNumber, performance = null) => {
+    const ACADEMIC_SCHEDULE = [1, 2, 3, 5, 7, 3, 5, 7];
+    let nextRep = performance?.isCorrect 
+        ? repetitionNumber + 1 
+        : Math.max(0, repetitionNumber - 1);
 
-  // ✅ ENHANCED: Calculate next review date with performance adaptation
-  calculateNextReviewDate(repetitionNumber, performance = null) {
-    const interval = this.getRepetitionInterval(repetitionNumber, performance);
-    
+    if (nextRep >= ACADEMIC_SCHEDULE.length) {
+        return { nextReviewDate: null, isMastered: true, repetitionNumber: nextRep };
+    }
+
+    const interval = ACADEMIC_SCHEDULE[nextRep];
     const nextDate = new Date();
     nextDate.setDate(nextDate.getDate() + interval);
     
     return {
-      nextReviewDate: nextDate.toISOString(),
-      intervalDays: interval,
-      repetitionNumber: performance?.isCorrect ? repetitionNumber + 1 : Math.max(0, repetitionNumber - 1)
+        nextReviewDate: nextDate.toISOString(),
+        intervalDays: interval,
+        repetitionNumber: nextRep,
+        isMastered: false
     };
   },
 

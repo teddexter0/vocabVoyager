@@ -1,7 +1,7 @@
 // src/components/AILearningAssistant.jsx - AI Assistant Interface
 import React, { useState, useEffect } from 'react';
 import { Brain, MessageCircle, Target, TrendingUp, Lightbulb, Loader, Sparkles, BookOpen } from 'lucide-react';
-import { vocabAI } from '../lib/openAIAssistant';
+// AI logic moved to /api/ai/quiz
 import { spacedRepetitionService } from '../lib/spacedRepetition';
 
 const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {

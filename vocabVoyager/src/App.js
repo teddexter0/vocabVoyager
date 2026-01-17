@@ -138,59 +138,41 @@ const VocabImprover = () => {
   };
 
   // Load user data with security verification
-  const loadUserData = async (userId) => {
+  // src/App.js
+
+const loadUserData = async (userId) => {
     try {
-      // Load user progress
-      let progress = await dbHelpers.getUserProgress(userId);
+        setLoading(true);
+        
+        // 1. Fetch User Progress (Streak, Level, etc.)
+        const progress = await dbHelpers.getUserProgress(userId);
+        if (progress) setUserProgress(progress);
 
-      if (!progress) {
-        progress = {
-          streak: 1,
-          words_learned: 0,
-          current_level: 1,
-          total_days: 1,
-          last_visit: new Date().toISOString().split('T')[0],
-          is_premium: false
-        };
-        await dbHelpers.upsertUserProgress(userId, progress);
-      }
+        // 2. CHECK FOR DUE REVIEWS (The "Review Lock")
+        const { data: dueWords } = await supabase
+            .from('user_word_progress')
+            .select('*, words(*)')
+            .eq('user_id', userId)
+            .lte('next_review_date', new Date().toISOString())
+            .limit(15); // Don't overwhelm, cap at 15 words
 
-      // 🔒 VERIFY PREMIUM STATUS FROM DATABASE
-      const realPremiumStatus = await checkPremiumStatusFromDatabase(userId);
-      if (realPremiumStatus !== progress.is_premium) {
-        // Sync the premium status
-        progress.is_premium = realPremiumStatus;
-        if (realPremiumStatus) {
-          progress.premium_until = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString();
+        if (dueWords && dueWords.length > 5) {
+            // 🛑 TRIGGER REVIEW MODE
+            setCurrentWords([]); // No new words today
+            setReviewWords(dueWords); // Assuming you have this state
+            setCurrentSession({ type: 'AI_QUIZ', words: dueWords });
+            console.log("Flashcard/Quiz Day: New words are locked.");
+        } else {
+            // ✅ NORMAL DAY: Fetch 3 new words
+            const newWords = await dbHelpers.getRandomWords(3, progress.current_level);
+            setCurrentWords(newWords);
         }
-        await dbHelpers.upsertUserProgress(userId, progress);
-      }
-
-      setUserProgress(progress);
-
-      // Load session
-      const sessionResult = await dbHelpers.getTodaySessionOrCreate(userId, progress.current_level, progress.is_premium);
-      
-      if (sessionResult.session && sessionResult.words.length > 0) {
-        setCurrentSession(sessionResult.session);
-        setCurrentWords(sessionResult.words);
-        setShowDefinitions(sessionResult.session.completed);
-      } else {
-        setCurrentWords([]);
-      }
-
-      // Try to load learning statistics
-      try {
-        const stats = await spacedRepetitionService.getLearningStats(userId);
-        setLearningStats(stats);
-      } catch (statsError) {
-        setLearningStats(null);
-      }
-
-    } catch (error) {
-      console.error('Error loading user data:', error);
+    } catch (err) {
+        console.error("Error loading app data:", err);
+    } finally {
+        setLoading(false);
     }
-  };
+};
 
   // Session state management
   const getSessionState = () => {

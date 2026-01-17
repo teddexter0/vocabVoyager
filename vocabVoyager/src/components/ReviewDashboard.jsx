@@ -1,18 +1,36 @@
 // src/components/ReviewDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useSpacedRepetition } from '../utils/spacedRepetition';
+import { spacedRepetitionService } from '../lib/spacedRepetition';
 
 const ReviewDashboard = ({ userId }) => {
-  const { reviewWords, stats, getReviewWords, getStats } = useSpacedRepetition();
+  // 1. Create local state for the data
+  const [reviewWords, setReviewWords] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userId) {
-      getReviewWords(userId);
-      getStats(userId);
+    async function loadDashboardData() {
+      if (!userId) return;
+      try {
+        setLoading(true);
+        // 2. Call the object methods directly (no more "spacedRepetitionService()")
+        const words = await spacedRepetitionService.getReviewWords(userId);
+        const userStats = await spacedRepetitionService.getLearningStats(userId);
+        
+        setReviewWords(words || []);
+        setStats(userStats);
+      } catch (err) {
+        console.error("Dashboard load error:", err);
+      } finally {
+        setLoading(false);
+      }
     }
+    loadDashboardData();
   }, [userId]);
 
-  return (
+  if (loading) return <div className="p-6">Loading stats...</div>;
+
+  return ( 
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold mb-4">📊 Learning Progress</h2>
       

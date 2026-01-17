@@ -5,6 +5,11 @@ import { supabase, dbHelpers, authHelpers } from './lib/supabase';
 import { pesapalService } from './lib/pesapal';
 import { spacedRepetitionService, reviewQuestionGenerator, reviewSessionTypes } from './lib/spacedRepetition';
 import AILearningAssistant from './components/AILearningAssistant';
+import PrivacyPolicy from './components/legal/PrivacyPolicy';
+import ContactUs from './components/legal/ContactUs';
+import ReviewDashboard from './components/ReviewDashboard';
+import TermsOfService from './components/legal/TermsOfService';
+
 
 const VocabImprover = () => {
   const [user, setUser] = useState(null);
@@ -34,6 +39,7 @@ const VocabImprover = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showReviewResult, setShowReviewResult] = useState(false);
   const [learningStats, setLearningStats] = useState(null);
+  const [currentView, setCurrentView] = useState('dashboard');
 
   // Initialize app
   useEffect(() => {
@@ -656,49 +662,69 @@ const loadUserData = async (userId) => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">📚 VocabVoyager</h1>
-            <p className="text-gray-600">Smart vocabulary learning platform</p>
-          </div>
-          <div className="flex items-center gap-4">
-            {!userProgress.is_premium && (
-              <button
-                onClick={handleUpgradeToPremium}
-                disabled={paymentLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-50"
-              >
-                {paymentLoading ? (
-                  <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CreditCard className="w-4 h-4" />
-                )}
-                {paymentLoading ? 'Processing...' : 'Upgrade KES 499'}
-              </button>
-            )}
+<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+  <div>
+    <h1
+      className="text-3xl font-bold text-gray-800 cursor-pointer"
+      onClick={() => setCurrentView('dashboard')}
+    >
+      📚 VocabVoyager
+    </h1>
+    <p className="text-gray-600">Smart vocabulary learning platform</p>
+  </div>
 
-            {userProgress.is_premium && (
-              <button
-                onClick={() => setShowAIAssistant(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-colors font-medium"
-              >
-                <Brain className="w-4 h-4" />
-                AI Assistant
-              </button>
-            )}
-            
-            <div className="flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4" />
-              <span className="text-sm">{user.email}</span>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+  <div className="flex items-center gap-4">
+    {!userProgress.is_premium && (
+      <button
+        onClick={handleUpgradeToPremium}
+        disabled={paymentLoading}
+        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-50"
+      >
+        {paymentLoading ? (
+          <Loader className="w-4 h-4 animate-spin" />
+        ) : (
+          <CreditCard className="w-4 h-4" />
+        )}
+        {paymentLoading ? 'Processing...' : 'Upgrade KES 499'}
+      </button>
+    )}
+
+    {userProgress.is_premium && (
+      <button
+        onClick={() => setShowAIAssistant(true)}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-colors font-medium"
+      >
+        <Brain className="w-4 h-4" />
+        AI Assistant
+      </button>
+    )}
+
+    <div className="flex items-center gap-2 text-gray-600">
+      <User className="w-4 h-4" />
+      <span className="text-sm">{user.email}</span>
+    </div>
+
+    <button
+      onClick={handleSignOut}
+      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+    >
+      <LogOut className="w-4 h-4" />
+    </button>
+  </div>
+</div>
+
+{/* Main */}
+<main className="flex-grow container mx-auto px-4 py-8">
+  {currentView === 'privacy' && <PrivacyPolicy />}
+  {currentView === 'contact' && <ContactUs />}
+  {currentView === 'terms' && <TermsOfService />}
+  {currentView === 'dashboard' && (
+  <div onError={() => setCurrentView('contact')}> 
+    <ReviewDashboard userId={user?.id} />
+  </div>
+)}
+</main>
+
 
         {/* Progress Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -909,9 +935,52 @@ const loadUserData = async (userId) => {
             }
           </p>
         </div>
-      </div>
-
-      {/* AI Assistant Modal */}
+      </div> 
+      
+      {/* Footer - Includes the Terms link */} 
+<footer className="mt-auto py-8 border-t border-gray-200 text-center bg-white/50">
+  <div className="flex justify-center space-x-8 text-sm text-gray-500">
+    <button 
+      onClick={() => {
+        setCurrentView('dashboard');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }} 
+      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
+    >
+      Dashboard
+    </button>
+    <button 
+      onClick={() => {
+        setCurrentView('terms');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }} 
+      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
+    >
+      Terms
+    </button>
+    <button 
+      onClick={() => {
+        setCurrentView('privacy');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }} 
+      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
+    >
+      Privacy
+    </button>
+    <button 
+      onClick={() => {
+        setCurrentView('contact');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }} 
+      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
+    >
+      Contact
+    </button>
+  </div>
+  <p className="mt-4 text-xs text-gray-400">© 2026 VocabVoyager</p>
+</footer>
+      
+{/* AI Assistant Modal */}
       {showAIAssistant && (
         <AILearningAssistant
           userId={user?.id}

@@ -70,18 +70,9 @@ export const dbHelpers = {
 
   // Enhanced upsert with validation
   async upsertUserProgress(userId, progressData) {
-    if (!userId) {
-      console.error('❌ upsertUserProgress: No userId provided');
-      return null;
-    }
-
-    if (!progressData || typeof progressData !== 'object') {
-      console.error('❌ upsertUserProgress: Invalid progressData');
-      return null;
-    }
+    if (!userId) return null;
 
     try {
-      // Validate required fields
       const validatedData = {
         user_id: userId,
         streak: progressData.streak || 0,
@@ -94,25 +85,24 @@ export const dbHelpers = {
         updated_at: new Date().toISOString()
       };
 
+      // ✅ Uses upsert with onConflict to handle existing users correctly
       const { data, error } = await supabase
         .from('user_progress')
-        .upsert(validatedData)
+        .upsert(validatedData, { onConflict: 'user_id' })
         .select()
-        .single()
+        .single();
       
       if (error) {
         console.error('❌ Error updating user progress:', error);
         return null;
       }
       
-      console.log('✅ User progress updated successfully');
-      return data
+      return data;
     } catch (err) {
       console.error('❌ Exception in upsertUserProgress:', err);
       return null;
     }
   },
-
   // Enhanced session management
   async getTodaySessionOrCreate(userId, level, isPremium) {
     if (!userId) {

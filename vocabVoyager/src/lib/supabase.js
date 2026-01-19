@@ -142,14 +142,14 @@ export const dbHelpers = {
     }
 
     try {
-      const today = new Date().toISOString().split('T')[0]
-      
-      const { data: existingSession, error: sessionError } = await supabase
-        .from('daily_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('session_date', today)
-        .single()
+      const today = new Date().toISOString().split('T')[0];
+
+const { data: existingSession, error: sessionError } = await supabase
+  .from('daily_sessions')
+  .select('*')
+  .eq('user_id', userId)
+  .eq('session_date', today)
+  .maybeSingle(); 
       
       if (existingSession) {
         const { data: words, error: wordsError } = await supabase

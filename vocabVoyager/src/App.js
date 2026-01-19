@@ -33,6 +33,7 @@ const VocabImprover = () => {
   
   // Review session states
   const [reviewMode, setReviewMode] = useState(false);
+  const [reviewWords, setReviewWords] = useState([]); // ✅ ADD THIS
   const [currentReviewQuestion, setCurrentReviewQuestion] = useState(null);
   const [reviewQuestions, setReviewQuestions] = useState([]);
   const [reviewAnswers, setReviewAnswers] = useState([]);
@@ -146,32 +147,39 @@ const VocabImprover = () => {
   // Load user data with security verification
   // src/App.js
 
-const loadUserData = async (userId) => {
+  const loadUserData = async (userId) => {
     try {
         setLoading(true);
         
-        // 1. Fetch User Progress (Streak, Level, etc.)
+        // 1. Fetch User Progress
         const progress = await dbHelpers.getUserProgress(userId);
         if (progress) setUserProgress(progress);
 
-        
-const { data: dueWords } = await supabase
-    .from('user_word_progress')
-    .select('*, words(*)')
-    .eq('user_id', userId)
-    .lte('next_review_at', new Date().toISOString())  // ✅ CORRECT
-    .limit(15);
+        // 2. Check for due reviews (existing code - keep this)
+        const { data: dueWords } = await supabase
+            .from('user_word_progress')
+            .select('*, words(*)')
+            .eq('user_id', userId)
+            .lte('next_review_at', new Date().toISOString())
+            .limit(15);
 
         if (dueWords && dueWords.length > 5) {
-            // 🛑 TRIGGER REVIEW MODE
-            setCurrentWords([]); // No new words today
-            setReviewWords(dueWords); // Assuming you have this state
+            // Review mode
+            setCurrentWords([]);
+            setReviewWords(dueWords); // ✅ Now this won't crash
             setCurrentSession({ type: 'AI_QUIZ', words: dueWords });
-            console.log("Flashcard/Quiz Day: New words are locked.");
         } else {
-            // ✅ NORMAL DAY: Fetch 3 new words
-            const newWords = await dbHelpers.getRandomWords(3, progress.current_level);
-            setCurrentWords(newWords);
+            // ✅ FIX: Use getTodaySessionOrCreate instead of getRandomWords
+            const { session, words, isNewSession } = await dbHelpers.getTodaySessionOrCreate(
+                userId, 
+                progress?.current_level || 1, 
+                progress?.is_premium || false
+            );
+            
+            setCurrentSession(session);
+            setCurrentWords(words);
+            
+            console.log(isNewSession ? '🆕 New daily session created' : '♻️ Loaded existing session');
         }
     } catch (err) {
         console.error("Error loading app data:", err);

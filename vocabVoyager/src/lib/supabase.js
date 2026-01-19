@@ -237,48 +237,70 @@ export const dbHelpers = {
     }
 
     try {
+      // ✅ Mark session as completed
       const { error: sessionError } = await supabase
         .from('daily_sessions')
         .update({ 
           completed: true,
           completed_at: new Date().toISOString()
         })
-        .eq('id', sessionId)
+        .eq('id', sessionId);
       
       if (sessionError) {
-        console.error('❌ Error completing session:', sessionError)
-        return false
+        console.error('❌ Error completing session:', sessionError);
+        return false;
       }
       
-      const currentProgress = await this.getUserProgress(userId)
-      if (currentProgress) {
-        const today = new Date().toISOString().split('T')[0];
-        const lastVisit = currentProgress.last_visit;
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        let newStreak = currentProgress.streak;
-        if (lastVisit === yesterday) {
-          newStreak += 1;
-        } else if (lastVisit !== today) {
-          newStreak = 1;
-        }
-        
-        const updatedProgress = {
-          ...currentProgress,
-          words_learned: currentProgress.words_learned + wordsCount,
-          streak: newStreak,
-          last_visit: today,
-          total_days: Math.max(currentProgress.total_days, newStreak)
-        }
-        
-        await this.upsertUserProgress(userId, updatedProgress)
+      // ✅ Get current progress
+      const currentProgress = await this.getUserProgress(userId);
+      if (!currentProgress) {
+        console.error('❌ No user progress found');
+        return false;
       }
       
-      console.log('✅ Session completed successfully');
-      return true
+      const today = new Date().toISOString().split('T')[0];
+      const lastVisit = currentProgress.last_visit;
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      // ✅ Calculate new streak
+      let newStreak = currentProgress.streak;
+      if (lastVisit === yesterday) {
+        newStreak += 1; // Continue streak
+      } else if (lastVisit !== today) {
+        newStreak = 1; // New streak
+      }
+      // If lastVisit === today, keep streak the same (already visited today)
+      
+      // ✅ THIS IS THE KEY FIX: Increment words_learned
+      const updatedProgress = {
+        user_id: userId,
+        streak: newStreak,
+        words_learned: currentProgress.words_learned + wordsCount, // ✅ ADD the words
+        current_level: currentProgress.current_level,
+        total_days: Math.max(currentProgress.total_days, newStreak),
+        is_premium: currentProgress.is_premium,
+        premium_until: currentProgress.premium_until,
+        last_visit: today,
+        updated_at: new Date().toISOString()
+      };
+      
+      // ✅ Save it
+      const result = await this.upsertUserProgress(userId, updatedProgress);
+      
+      if (!result) {
+        console.error('❌ Failed to update progress');
+        return false;
+      }
+      
+      console.log('✅ Session completed:', {
+        wordsLearned: result.words_learned,
+        streak: result.streak
+      });
+      
+      return true;
     } catch (err) {
-      console.error('❌ Exception in completeSession:', err)
-      return false
+      console.error('❌ Exception in completeSession:', err);
+      return false;
     }
   }
 }

@@ -153,36 +153,77 @@ const VocabImprover = () => {
         
         // 1. Fetch User Progress
         const progress = await dbHelpers.getUserProgress(userId);
-        if (progress) setUserProgress(progress);
+        if (progress) {
+          setUserProgress(progress);
+        } else {
+          console.warn('⚠️ No user progress found, creating default');
+          // Create default progress
+          const defaultProgress = {
+            user_id: userId,
+            streak: 1,
+            words_learned: 0,
+            current_level: 1,
+            total_days: 1,
+            is_premium: false,
+            last_visit: new Date().toISOString().split('T')[0]
+          };
+          const created = await dbHelpers.upsertUserProgress(userId, defaultProgress);
+          if (created) setUserProgress(created);
+        }
 
-        // 2. Check for due reviews (existing code - keep this)
-        const { data: dueWords } = await supabase
+        // 2. Check for due reviews
+        const { data: dueWords, error: reviewError } = await supabase
             .from('user_word_progress')
             .select('*, words(*)')
             .eq('user_id', userId)
             .lte('next_review_at', new Date().toISOString())
             .limit(15);
 
+        if (reviewError) {
+          console.error('❌ Error fetching review words:', reviewError);
+        }
+
         if (dueWords && dueWords.length > 5) {
             // Review mode
+            console.log(`📝 ${dueWords.length} words due for review - entering review mode`);
             setCurrentWords([]);
-            setReviewWords(dueWords); // ✅ Now this won't crash
+            setReviewWords(dueWords);
             setCurrentSession({ type: 'AI_QUIZ', words: dueWords });
         } else {
-            // ✅ FIX: Use getTodaySessionOrCreate instead of getRandomWords
-            const { session, words, isNewSession } = await dbHelpers.getTodaySessionOrCreate(
+            // Normal mode - get today's session
+            console.log('📚 Loading daily vocabulary session...');
+            
+            const result = await dbHelpers.getTodaySessionOrCreate(
                 userId, 
                 progress?.current_level || 1, 
                 progress?.is_premium || false
             );
             
-            setCurrentSession(session);
-            setCurrentWords(words);
+            // ✅ FIX: Check for errors
+            if (result.error) {
+              console.error('❌ Session creation failed:', result.error);
+              alert('Failed to load today\'s words. Please refresh the page.');
+              return;
+            }
             
-            console.log(isNewSession ? '🆕 New daily session created' : '♻️ Loaded existing session');
+            if (result.noWords) {
+              console.error('❌ No words available in database');
+              alert('No vocabulary words found. Please contact support.');
+              return;
+            }
+            
+            setCurrentSession(result.session);
+            setCurrentWords(result.words || []);
+            
+            if (result.isNewSession) {
+              console.log('🆕 New daily session created');
+            } else {
+              console.log('♻️ Loaded existing session');
+            }
         }
     } catch (err) {
-        console.error("Error loading app data:", err);
+        console.error("❌ Critical error loading app data:", err);
+        alert('Failed to load app. Please refresh the page.');
     } finally {
         setLoading(false);
     }

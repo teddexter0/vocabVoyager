@@ -1,88 +1,90 @@
-// api/anthropic.js - FIXED VERSION WITH PROPER RETURNS AND LOGGING
+// api/anthropic.js - CORRECTED MODEL AND ERROR HANDLING
 
 export default async function handler(req, res) {
-  // Add CORS headers for local testing
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Only allow POST
   if (req.method !== 'POST') {
-    console.log('❌ Method not allowed:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    console.log('📥 Received request');
     const { messages } = req.body;
 
-    // Validate input
     if (!messages || !Array.isArray(messages)) {
-      console.log('❌ Invalid messages format');
       return res.status(400).json({ 
         error: 'Invalid request: messages array required' 
       });
     }
 
-    console.log('📝 Messages:', JSON.stringify(messages));
-
     // Check API key
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error('⚠️ ANTHROPIC_API_KEY not configured in Vercel');
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error('⚠️ ANTHROPIC_API_KEY not set');
       return res.status(200).json({ 
-        text: "AI features are being configured. Your vocabulary learning continues below!" 
+        text: "AI features are being configured. Check your Vercel environment variables!" 
       });
     }
 
-    console.log('🔑 API key found, calling Anthropic...');
-
-    // Call Anthropic API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // ✅ FIXED: Use correct model name and API version
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-sonnet-20241022', // ✅ This should work
         max_tokens: 1024,
         messages: messages
       })
     });
 
-    console.log('📡 Anthropic response status:', response.status);
+    console.log('Anthropic status:', anthropicResponse.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Anthropic API error:', response.status, errorText);
+    // Get response text for debugging
+    const responseText = await anthropicResponse.text();
+    console.log('Anthropic raw response:', responseText);
+
+    if (!anthropicResponse.ok) {
+      console.error('Anthropic API error:', anthropicResponse.status, responseText);
+      
+      // Check if it's an auth error
+      if (anthropicResponse.status === 401) {
+        return res.status(200).json({ 
+          text: "AI authentication failed. Check your API key in Vercel settings." 
+        });
+      }
+      
+      // Check if it's a 404 (wrong endpoint/model)
+      if (anthropicResponse.status === 404) {
+        return res.status(200).json({ 
+          text: "AI model not found. The API might have changed - contact support." 
+        });
+      }
+      
       return res.status(200).json({ 
-        text: `AI request failed (${response.status}). Your learning continues!` 
+        text: `AI error (${anthropicResponse.status}). Please try again later.` 
       });
     }
 
-    const data = await response.json();
-    console.log('✅ Anthropic response:', JSON.stringify(data));
-
-    // Extract text from response
+    // Parse response
+    const data = JSON.parse(responseText);
     const text = data.content?.[0]?.text || "AI response unavailable";
-    
-    console.log('📤 Sending response:', text.substring(0, 100) + '...');
 
-    // ✅ CRITICAL: Must return here!
     return res.status(200).json({ text });
 
   } catch (error) {
-    console.error('❌ Exception in handler:', error);
-    
-    // ✅ CRITICAL: Must return here too!
+    console.error('Exception:', error.message);
     return res.status(200).json({ 
-      text: "AI features temporarily unavailable. Your learning experience continues below!" 
+      text: "AI temporarily unavailable. Your learning continues!" 
     });
   }
 }

@@ -1,4 +1,4 @@
-// api/anthropic.js - CORRECTED MODEL AND ERROR HANDLING
+// api/anthropic.js - WORKING VERSION WITH CORRECT MODEL
 
 export default async function handler(req, res) {
   // CORS headers
@@ -23,16 +23,15 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check API key
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      console.error('⚠️ ANTHROPIC_API_KEY not set');
+      console.error('ANTHROPIC_API_KEY not set');
       return res.status(200).json({ 
-        text: "AI features are being configured. Check your Vercel environment variables!" 
+        text: "AI API key not configured in Vercel environment variables." 
       });
     }
 
-    // ✅ FIXED: Use correct model name and API version
+    // ✅ CRITICAL FIX: Use the LATEST working model
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -41,50 +40,50 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022', // ✅ This should work
+        model: 'claude-3-5-sonnet-20241022', // ✅ Latest Sonnet model
         max_tokens: 1024,
         messages: messages
       })
     });
 
-    console.log('Anthropic status:', anthropicResponse.status);
-
-    // Get response text for debugging
     const responseText = await anthropicResponse.text();
-    console.log('Anthropic raw response:', responseText);
 
     if (!anthropicResponse.ok) {
-      console.error('Anthropic API error:', anthropicResponse.status, responseText);
+      console.error('Anthropic error:', anthropicResponse.status, responseText);
       
-      // Check if it's an auth error
+      // Parse error for more details
+      let errorDetail = '';
+      try {
+        const errorData = JSON.parse(responseText);
+        errorDetail = errorData.error?.message || '';
+      } catch (e) {}
+      
       if (anthropicResponse.status === 401) {
         return res.status(200).json({ 
-          text: "AI authentication failed. Check your API key in Vercel settings." 
+          text: "AI authentication failed. Your API key may be invalid or expired. Please check Vercel environment variables." 
         });
       }
       
-      // Check if it's a 404 (wrong endpoint/model)
       if (anthropicResponse.status === 404) {
         return res.status(200).json({ 
-          text: "AI model not found. The API might have changed - contact support." 
+          text: "AI model access error. Your API key might not have access to Claude 3.5 Sonnet. Try creating a new API key at console.anthropic.com" 
         });
       }
       
       return res.status(200).json({ 
-        text: `AI error (${anthropicResponse.status}). Please try again later.` 
+        text: `AI error (${anthropicResponse.status}): ${errorDetail || 'Please try again later'}` 
       });
     }
 
-    // Parse response
     const data = JSON.parse(responseText);
     const text = data.content?.[0]?.text || "AI response unavailable";
 
     return res.status(200).json({ text });
 
   } catch (error) {
-    console.error('Exception:', error.message);
+    console.error('Exception:', error);
     return res.status(200).json({ 
-      text: "AI temporarily unavailable. Your learning continues!" 
+      text: `AI system error: ${error.message}` 
     });
   }
 }

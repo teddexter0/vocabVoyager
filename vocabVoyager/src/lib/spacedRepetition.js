@@ -114,25 +114,42 @@ export const spacedRepetitionService = {
       };
     }
   },
-
-  // ✅ FIXED: Changed next_review_date → next_review_at
-  async updateWordProgress(userId, wordId, performance) {
-    try {
-      const nextReviewDate = new Date();
-      nextReviewDate.setDate(nextReviewDate.getDate() + 1); // Review tomorrow
-      
-      await supabase
-        .from('user_word_progress')
-        .upsert({
-          user_id: userId,
-          word_id: wordId,
-          next_review_at: nextReviewDate.toISOString(), // ✅ FIXED COLUMN NAME
-          updated_at: new Date().toISOString()
-        });
-    } catch (e) {
-      console.error('Error updating word progress:', e);
+  // ✅ FIXED: Changed next_review_date → next_review_at AND uses UPSERT
+async updateWordProgress(userId, wordId, performance) {
+  try {
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + 1); // Review tomorrow
+    
+    // ✅ FIX: Use upsert to avoid 409 conflicts
+    const { data, error } = await supabase
+      .from('user_word_progress')
+      .upsert({
+        user_id: userId,
+        word_id: wordId,
+        next_review_at: nextReviewDate.toISOString(),
+        updated_at: new Date().toISOString(),
+        total_reviews: 1, // This will increment if row exists
+        confidence_level: 'learning'
+      }, {
+        onConflict: 'user_id,word_id', // ✅ Handle duplicates
+        ignoreDuplicates: false // ✅ Update instead of ignore
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Error updating word progress:', error);
+      return null;
     }
-  },
+    
+    console.log('✅ Word progress updated:', data);
+    return data;
+    
+  } catch (e) {
+    console.error('❌ Exception updating word progress:', e);
+    return null;
+  }
+},
 
   async loadOrCreateSession(userId, level, isPremium) {
     const words = await this.getRandomWords(3);

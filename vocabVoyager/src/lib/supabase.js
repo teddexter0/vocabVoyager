@@ -135,8 +135,7 @@ export const dbHelpers = {
   },
 
   // Enhanced session management
-  // Enhanced session management
-async getTodaySessionOrCreate(userId, level, isPremium) {
+  async getTodaySessionOrCreate(userId, level, isPremium) {
   if (!userId) {
     console.error('❌ getTodaySessionOrCreate: No userId provided');
     return { session: null, words: [] };
@@ -145,25 +144,24 @@ async getTodaySessionOrCreate(userId, level, isPremium) {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    console.log(`📅 Checking for session on ${today} for user ${userId}`);
+    console.log(`📅 Checking for session on ${today}`);
 
-    // Try to get existing session
+    // ✅ Check for TODAY'S session
     const { data: existingSession, error: sessionError } = await supabase
       .from('daily_sessions')
       .select('*')
       .eq('user_id', userId)
-      .eq('session_date', today)
-      .maybeSingle(); // ✅ Changed from .single() to .maybeSingle()
+      .eq('session_date', today) // ✅ MUST be today
+      .maybeSingle();
     
-    // ✅ FIX: Check for real errors (not just "no rows found")
     if (sessionError) {
-      console.error('❌ Error checking for session:', sessionError);
+      console.error('❌ Error checking session:', sessionError);
       return { session: null, words: [] };
     }
 
-    // ✅ If session exists, load its words
+    // ✅ If TODAY'S session exists, load it
     if (existingSession) {
-      console.log('✅ Found existing session:', existingSession.id);
+      console.log('✅ Found existing session for today:', existingSession.id);
       
       const { data: words, error: wordsError } = await supabase
         .from('words')
@@ -171,11 +169,9 @@ async getTodaySessionOrCreate(userId, level, isPremium) {
         .in('id', existingSession.words_shown);
       
       if (wordsError) {
-        console.error('❌ Error loading session words:', wordsError);
+        console.error('❌ Error loading words:', wordsError);
         return { session: existingSession, words: [] };
       }
-      
-      console.log(`📚 Loaded ${words?.length || 0} words from existing session`);
       
       return { 
         session: existingSession, 
@@ -184,73 +180,44 @@ async getTodaySessionOrCreate(userId, level, isPremium) {
       };
     }
     
-    // ✅ No session exists, create a new one
-    console.log('🆕 No session found, creating new session...');
+    // ✅ No session for TODAY - create NEW one
+    console.log('🆕 Creating NEW session for today...');
     
     const newWords = await this.getRandomWords(3, level);
     
     if (newWords.length === 0) {
-      console.error('❌ No words available for new session');
+      console.error('❌ No words available');
       return { session: null, words: [], noWords: true };
     }
     
     const wordIds = newWords.map(w => w.id);
-    console.log(`📝 Creating session with word IDs:`, wordIds);
     
-    // ✅ Create new session with retry logic
-    let sessionData = null;
-    let lastError = null;
+    const { data: newSession, error: createError } = await supabase
+      .from('daily_sessions')
+      .insert({
+        user_id: userId,
+        session_date: today, // ✅ Today's date
+        words_shown: wordIds,
+        completed: false
+      })
+      .select()
+      .single();
     
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const { data: newSession, error: createError } = await supabase
-          .from('daily_sessions')
-          .insert({
-            user_id: userId,
-            session_date: today,
-            words_shown: wordIds,
-            completed: false
-          })
-          .select()
-          .single();
-        
-        if (createError) {
-          console.warn(`⚠️ Attempt ${attempt}/3 failed:`, createError.message);
-          lastError = createError;
-          
-          if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-            continue;
-          }
-        } else {
-          sessionData = newSession;
-          console.log('✅ Session created:', newSession.id);
-          break;
-        }
-      } catch (err) {
-        console.error(`❌ Exception on attempt ${attempt}:`, err);
-        lastError = err;
-        
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
-      }
+    if (createError) {
+      console.error('❌ Failed to create session:', createError);
+      return { session: null, words: newWords, error: createError };
     }
     
-    // ✅ If all retries failed
-    if (!sessionData) {
-      console.error('❌ Failed to create session after 3 attempts:', lastError);
-      return { session: null, words: newWords, isNewSession: true, error: lastError };
-    }
+    console.log('✅ NEW session created:', newSession.id);
     
     return { 
-      session: sessionData, 
+      session: newSession, 
       words: newWords,
       isNewSession: true
     };
     
   } catch (err) {
-    console.error('❌ Exception in getTodaySessionOrCreate:', err);
+    console.error('❌ Exception:', err);
     return { session: null, words: [] };
   }
 },

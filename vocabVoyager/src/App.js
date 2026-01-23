@@ -686,6 +686,24 @@ const VocabImprover = () => {
                 Powered by Pesapal - Kenya's trusted platform
               </p>
             </div>
+            
+<div className="mb-8">
+  <button
+    onClick={() => setCurrentView('pricing')}
+    className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-colors font-bold text-lg shadow-lg"
+  >
+    <Crown className="w-5 h-5" />
+    View Pricing Plans
+  </button>
+</div>
+
+<button
+  onClick={() => setShowAuth(true)}
+  className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
+>
+  Start Learning Today - Free
+  <ChevronRight className="w-5 h-5" />
+</button>
           </div>
 
           <button
@@ -767,6 +785,7 @@ const VocabImprover = () => {
   {currentView === 'privacy' && <PrivacyPolicy />}
   {currentView === 'contact' && <ContactUs />}
   {currentView === 'terms' && <TermsOfService />}
+  {currentView === 'pricing' && <Pricing onUpgrade={handleUpgradeToPremium} />}
   {currentView === 'dashboard' && (
   <div onError={() => setCurrentView('contact')}> 
     <ReviewDashboard userId={user?.id} />
@@ -998,6 +1017,7 @@ const VocabImprover = () => {
     >
       Dashboard
     </button>
+    <button onClick={() => setCurrentView('pricing')}>Pricing</button>
     <button 
       onClick={() => {
         setCurrentView('terms');

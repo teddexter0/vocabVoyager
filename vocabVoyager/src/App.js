@@ -8,6 +8,7 @@ import AILearningAssistant from './components/AILearningAssistant';
 import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import ContactUs from './components/legal/ContactUs';
 import ReviewDashboard from './components/ReviewDashboard';
+import Pricing from './components/Pricing';  
 import TermsOfService from './components/legal/TermsOfService';
 
 

@@ -1,14 +1,13 @@
-// src/lib/spacedRepetition.js - FIXED: All column names use next_review_at
+// src/lib/spacedRepetition.js - FIXED FOR YOUR ACTUAL SCHEMA
 import { supabase } from './supabase'
 
 export const spacedRepetitionService = {
-  // ✅ FIXED: Added this missing method
   async getRandomWords(limit = 10) {
     try {
       const { data } = await supabase
         .from('words')
         .select('*')
-        .limit(limit * 2); // Get extra for shuffling
+        .limit(limit * 2);
       
       if (!data || data.length === 0) return [];
       
@@ -19,7 +18,6 @@ export const spacedRepetitionService = {
     }
   },
 
-  // ✅ FIXED: Changed next_review_date → next_review_at
   async getReviewWords(userId, limit = 15) {
     if (!userId) return [];
     
@@ -31,7 +29,7 @@ export const spacedRepetitionService = {
           words!inner(*)
         `)
         .eq('user_id', userId)
-        .lte('next_review_at', new Date().toISOString()) // ✅ FIXED COLUMN NAME
+        .lte('next_review_at', new Date().toISOString())
         .order('next_review_at', { ascending: true })
         .limit(limit);
       
@@ -47,12 +45,10 @@ export const spacedRepetitionService = {
     }
   },
 
-  // ✅ FIXED: Alias for compatibility
   async getWordsForReview(userId, limit = 15) {
     return this.getReviewWords(userId, limit);
   },
 
-  // ✅ FIXED: Changed next_review_date → next_review_at
   async getLearningStats(userId) {
     if (!userId) {
       return { 
@@ -82,12 +78,11 @@ export const spacedRepetitionService = {
       const words = data || [];
       const now = new Date();
       
-      const mastered = words.filter(w => w.confidence_level === 'mastered').length;
-      const due = words.filter(w => new Date(w.next_review_at) <= now).length; // ✅ FIXED COLUMN NAME
+      const mastered = words.filter(w => w.mastery_level >= 5).length;
+      const due = words.filter(w => new Date(w.next_review_at) <= now).length;
       
-      // Calculate average accuracy
-      const totalReviews = words.reduce((sum, w) => sum + (w.total_reviews || 0), 0);
-      const correctReviews = words.reduce((sum, w) => sum + (w.correct_reviews || 0), 0);
+      const totalReviews = words.reduce((sum, w) => sum + (w.review_count || 0), 0);
+      const correctReviews = words.reduce((sum, w) => sum + (w.correct_count || 0), 0);
       const averageAccuracy = totalReviews > 0 ? correctReviews / totalReviews : 0;
       
       return {
@@ -95,13 +90,12 @@ export const spacedRepetitionService = {
         averageAccuracy,
         wordsForReview: due,
         totalWords: count || 0,
-        // Additional breakdown
         confidenceBreakdown: {
-          mastered: words.filter(w => w.confidence_level === 'mastered').length,
-          strong: words.filter(w => w.confidence_level === 'strong').length,
-          developing: words.filter(w => w.confidence_level === 'developing').length,
-          learning: words.filter(w => w.confidence_level === 'learning').length,
-          new: words.filter(w => w.confidence_level === 'new').length
+          mastered: words.filter(w => w.mastery_level >= 5).length,
+          strong: words.filter(w => w.mastery_level >= 3 && w.mastery_level < 5).length,
+          developing: words.filter(w => w.mastery_level >= 1 && w.mastery_level < 3).length,
+          learning: words.filter(w => w.mastery_level === 0).length,
+          new: 0
         }
       };
     } catch (error) {
@@ -114,42 +108,46 @@ export const spacedRepetitionService = {
       };
     }
   },
-  // ✅ FIXED: Changed next_review_date → next_review_at AND uses UPSERT
-async updateWordProgress(userId, wordId, performance) {
-  try {
-    const nextReviewDate = new Date();
-    nextReviewDate.setDate(nextReviewDate.getDate() + 1); // Review tomorrow
-    
-    // ✅ FIX: Use upsert to avoid 409 conflicts
-    const { data, error } = await supabase
-      .from('user_word_progress')
-      .upsert({
-        user_id: userId,
-        word_id: wordId,
-        next_review_at: nextReviewDate.toISOString(),
-        updated_at: new Date().toISOString(),
-        total_reviews: 1, // This will increment if row exists
-        confidence_level: 'learning'
-      }, {
-        onConflict: 'user_id,word_id', // ✅ Handle duplicates
-        ignoreDuplicates: false // ✅ Update instead of ignore
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('❌ Error updating word progress:', error);
+
+  async updateWordProgress(userId, wordId, performance) {
+    try {
+      const nextReviewDate = new Date();
+      nextReviewDate.setDate(nextReviewDate.getDate() + 1);
+      
+      const { data, error } = await supabase
+        .from('user_word_progress')
+        .upsert({
+          user_id: userId,
+          word_id: wordId,
+          next_review_at: nextReviewDate.toISOString(),
+          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          times_seen: 1,
+          times_correct: performance?.isCorrect ? 1 : 0,
+          review_count: 1,
+          correct_count: performance?.isCorrect ? 1 : 0,
+          mastery_level: 0,
+          status: 'learning'
+        }, {
+          onConflict: 'user_id,word_id',
+          ignoreDuplicates: false
+        })
+        .select()
+        .maybeSingle();
+      
+      if (error) {
+        console.error('❌ Error updating word progress:', error);
+        return null;
+      }
+      
+      console.log('✅ Word progress updated');
+      return data;
+      
+    } catch (e) {
+      console.error('❌ Exception:', e);
       return null;
     }
-    
-    console.log('✅ Word progress updated:', data);
-    return data;
-    
-  } catch (e) {
-    console.error('❌ Exception updating word progress:', e);
-    return null;
-  }
-},
+  },
 
   async loadOrCreateSession(userId, level, isPremium) {
     const words = await this.getRandomWords(3);
@@ -161,7 +159,6 @@ async updateWordProgress(userId, wordId, performance) {
   }
 };
 
-// ✅ KEPT: These prevent Vercel build errors
 export const reviewSessionTypes = { 
   MULTIPLE_CHOICE: 'mc', 
   FILL_BLANK: 'fb', 

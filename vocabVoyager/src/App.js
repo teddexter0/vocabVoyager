@@ -704,15 +704,7 @@ const VocabImprover = () => {
   Start Learning Today - Free
   <ChevronRight className="w-5 h-5" />
 </button>
-          </div>
-
-          <button
-            onClick={() => setShowAuth(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
-          >
-            Start Learning Today - Free
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          </div> 
           
           <p className="text-sm text-gray-500 mt-4">
             No credit card required • Start with Level 1 words • Upgrade anytime

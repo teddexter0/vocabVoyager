@@ -134,44 +134,51 @@ export const dbHelpers = {
     }
   },
 
-  // Enhanced session management
-  async getTodaySessionOrCreate(userId, level, isPremium) {
+  // src/lib/supabase.js - FIXED getTodaySessionOrCreate
+// This ensures NEW words every day
+
+async getTodaySessionOrCreate(userId, level, isPremium) {
   if (!userId) {
     console.error('❌ getTodaySessionOrCreate: No userId provided');
-    return { session: null, words: [] };
+    return { session: null, words: [], error: 'No user ID' };
   }
 
   try {
+    // ✅ Get today's date in UTC (consistent timezone)
     const today = new Date().toISOString().split('T')[0];
     
-    console.log(`📅 Checking for session on ${today}`);
+    console.log(`📅 Checking for session on ${today} for user ${userId}`);
 
-    // ✅ Check for TODAY'S session
-    const { data: existingSession, error: sessionError } = await supabase
+    // ✅ Check if TODAY's session exists
+    const { data: existingSessions, error: sessionError } = await supabase
       .from('daily_sessions')
       .select('*')
       .eq('user_id', userId)
-      .eq('session_date', today) // ✅ MUST be today
-      .maybeSingle();
+      .eq('session_date', today)
+      .order('created_at', { ascending: false });
     
     if (sessionError) {
       console.error('❌ Error checking session:', sessionError);
-      return { session: null, words: [] };
+      return { session: null, words: [], error: sessionError.message };
     }
 
-    // ✅ If TODAY'S session exists, load it
-    if (existingSession) {
-      console.log('✅ Found existing session for today:', existingSession.id);
+    // ✅ If TODAY's session exists, load its words
+    if (existingSessions && existingSessions.length > 0) {
+      const existingSession = existingSessions[0];
+      console.log('♻️ Found existing session for today:', existingSession.id);
       
+      // Load the exact words from this session
       const { data: words, error: wordsError } = await supabase
         .from('words')
         .select('*')
         .in('id', existingSession.words_shown);
       
       if (wordsError) {
-        console.error('❌ Error loading words:', wordsError);
+        console.error('❌ Error loading session words:', wordsError);
         return { session: existingSession, words: [] };
       }
+      
+      console.log(`✅ Loaded ${words.length} words from existing session`);
       
       return { 
         session: existingSession, 
@@ -180,35 +187,55 @@ export const dbHelpers = {
       };
     }
     
-    // ✅ No session for TODAY - create NEW one
+    // ✅ No session for TODAY - Create NEW session with NEW words
     console.log('🆕 Creating NEW session for today...');
     
+    // Get NEW random words (not seen today)
     const newWords = await this.getRandomWords(3, level);
     
     if (newWords.length === 0) {
-      console.error('❌ No words available');
-      return { session: null, words: [], noWords: true };
+      console.error('❌ No words available in database for level', level);
+      return { 
+        session: null, 
+        words: [], 
+        noWords: true,
+        error: 'No words available' 
+      };
     }
     
     const wordIds = newWords.map(w => w.id);
     
+    console.log(`🎲 Selected ${newWords.length} NEW words:`, wordIds);
+    
+    // Create the NEW session
     const { data: newSession, error: createError } = await supabase
       .from('daily_sessions')
       .insert({
         user_id: userId,
-        session_date: today, // ✅ Today's date
+        session_date: today, // ✅ TODAY'S date
         words_shown: wordIds,
-        completed: false
+        completed: false,
+        created_at: new Date().toISOString()
       })
       .select()
       .single();
     
     if (createError) {
       console.error('❌ Failed to create session:', createError);
-      return { session: null, words: newWords, error: createError };
+      return { 
+        session: null, 
+        words: newWords, 
+        error: createError.message 
+      };
     }
     
     console.log('✅ NEW session created:', newSession.id);
+    console.log('📝 New session details:', {
+      id: newSession.id,
+      date: newSession.session_date,
+      words: wordIds,
+      isToday: newSession.session_date === today
+    });
     
     return { 
       session: newSession, 
@@ -217,8 +244,12 @@ export const dbHelpers = {
     };
     
   } catch (err) {
-    console.error('❌ Exception:', err);
-    return { session: null, words: [] };
+    console.error('❌ Exception in getTodaySessionOrCreate:', err);
+    return { 
+      session: null, 
+      words: [], 
+      error: err.message 
+    };
   }
 },
   // Enhanced session completion

@@ -1010,7 +1010,9 @@ const VocabImprover = () => {
     >
       Dashboard
     </button>
-    <button onClick={() => setCurrentView('pricing')}>Pricing</button>
+    <button onClick={
+      () => setCurrentView('pricing')
+      }>Pricing</button>
     <button 
       onClick={() => {
         setCurrentView('terms');

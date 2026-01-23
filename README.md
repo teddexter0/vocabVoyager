@@ -67,7 +67,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 This is a **proprietary project**. Contributions are not accepted.
 
 For bug reports or feature requests, please contact: 
-<a href="mailto:teddexter0@gmail.com">support@vocabvoyager.com</a>
+[support@vocabvoyager.com](mailto:teddexter0@gmail.com) 
 
 ## 📄 **License**
 

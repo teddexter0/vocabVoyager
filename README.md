@@ -70,11 +70,8 @@ For bug reports or feature requests, please contact:
 [support@vocabvoyager.com](mailto:teddexter0@gmail.com) 
 
 ## 📄 **License**
-**All Rights Reserved** &copy; 2025 - <span id="year"></span>
 
-<script>
-  document.getElementById("year").innerHTML = new Date().getFullYear();
-</script>
+**All Rights Reserved** &copy; 2025 - VocabVoyager
 
 This software and its source code are proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
 

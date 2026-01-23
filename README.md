@@ -30,7 +30,7 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 - [Login/Signup](assets/screenshot.png)
 - [Dashboard](assets/screenshot2.png) 
 
-**📱 Mobile App:** Coming Q2 2025
+**📱 Mobile App:** Coming Q4 2027
 
 ## 🛠️ **Tech Stack**
 
@@ -39,56 +39,6 @@ VocabVoyager is a revolutionary vocabulary learning app that uses **science-back
 | React 18 | Supabase | PostgreSQL | Vercel |
 | Tailwind CSS | Supabase Auth | Row Level Security | GitHub Actions |
 | Lucide Icons | Supabase Realtime | Supabase Storage | - |
-
-## 📋 **Prerequisites**
-
-- **Node.js** 16.0 or higher
-- **npm** or **yarn**
-- **Supabase account** (free tier available)
-
-## ⚡ **Quick Start**
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/teddexter0/vocabVoyager.git
-cd vocabVoyager
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Environment Setup
-Create `.env.local` in the root directory:
-```env
-REACT_APP_SUPABASE_URL=your_supabase_project_url
-REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
-REACT_APP_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-### 4. Database Setup
-1. Create a new Supabase project
-2. Run the SQL commands from `database/schema.sql`
-3. Import sample words: `npm run import-words`
-
-### 5. Start Development Server
-```bash
-npm start
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## 📊 **Database Schema**
-
-```sql
--- Core tables
-words (id, word, synonym, definition, example, context, level, difficulty)
-user_progress (user_id, streak, words_learned, current_level, is_premium)
-daily_sessions (user_id, session_date, words_shown, completed)
-user_word_progress (user_id, word_id, mastery_level, next_review)
-```
-
 ## 🎮 **How It Works**
 
 ### Learning Flow
@@ -110,39 +60,24 @@ user_word_progress (user_id, word_id, mastery_level, next_review)
 | Plan | Price | Features |
 |------|-------|----------|
 | **Free** | $0 | Level 1, Basic tracking, 3 words/day |
-| **Premium** | $4.99/mo | All 5 levels, Advanced analytics, Spaced repetition |
-
-## 🔒 **Security & Privacy**
-
-- **Authentication:** Supabase Auth with JWT tokens
-- **Database:** Row Level Security (RLS) policies
-- **Privacy:** No tracking, minimal data collection
-- **GDPR Compliant:** Data export/deletion available
-
-## 📱 **Mobile App Roadmap**
-
-- **Q1 2025:** Web app launch
-- **Q2 2025:** React Native iOS/Android app
-- **Q3 2025:** Push notifications & offline mode
-- **Q4 2025:** Advanced personalization features
+| **Premium** | $4.99/mo | All 5 levels, Advanced analytics, Spaced repetition | 
 
 ## 🤝 **Contributing**
 
 This is a **proprietary project**. Contributions are not accepted.
 
-For bug reports or feature requests, please contact: [support@vocabvoyager.com]
+For bug reports or feature requests, please contact: <a href="mailto:teddexter0@gmail.com">support@vocabvoyager.com</a>
 
 ## 📄 **License**
 
-**All Rights Reserved** © 2025 VocabVoyager
+**All Rights Reserved** &copy; 2025 - <script>document.write(new Date().getFullYear())</script> VocabVoyager
 
 This software and its source code are proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
 
 ## 📞 **Contact & Support**
 
 - **Website:** [Coming Soon]
-- **Email:** support@vocabvoyager.com
-- **Twitter:** @VocabVoyager
+- **Email:** [support@vocabvoyager.com](mailto:teddexter0@gmail.com) 
 
 ---
 

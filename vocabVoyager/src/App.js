@@ -687,16 +687,6 @@ const VocabImprover = () => {
                 Powered by Pesapal - Kenya's trusted platform
               </p>
             </div>
-            
-<div className="mb-8">
-  <button
-    onClick={() => setCurrentView('pricing')}
-    className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-colors font-bold text-lg shadow-lg"
-  >
-    <Crown className="w-5 h-5" />
-    View Pricing Plans
-  </button>
-</div>
 
 <button
   onClick={() => setShowAuth(true)}
@@ -1010,8 +1000,10 @@ const VocabImprover = () => {
     >
       Dashboard
     </button>
-    <button onClick={
-      () => setCurrentView('pricing')
+    <button onClick={() => {
+    setCurrentView('pricing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    } 
       }>Pricing</button>
     <button 
       onClick={() => {

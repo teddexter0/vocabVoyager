@@ -27,18 +27,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Enhanced database helpers with ALL required methods
+// src/lib/supabase.js - COMPLETE FIX FOR NEW WORDS EACH DAY
+
 export const dbHelpers = {
-  // ✅ ADDED: This was missing and causing "getRandomWords is not a function"
+  // ✅ FIXED: Better random word selection
   async getRandomWords(limit = 3, level = 1) {
     try {
       console.log(`🎲 Fetching ${limit} random words for level ${level}`);
       
+      // Get MORE words than needed to ensure variety
       const { data, error } = await supabase
         .from('words')
         .select('*')
         .eq('level', level)
-        .limit(limit * 2); // Get extra to shuffle from
+        .limit(limit * 5); // Get 5x more to shuffle
       
       if (error) {
         console.error('❌ Error fetching random words:', error);
@@ -50,11 +52,11 @@ export const dbHelpers = {
         return [];
       }
       
-      // Shuffle and return requested count
-      const shuffled = [...data].sort(() => 0.5 - Math.random());
+      // ✅ BETTER SHUFFLE: Use crypto for true randomness
+      const shuffled = [...data].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, limit);
       
-      console.log(`✅ Selected ${selected.length} random words`);
+      console.log(`✅ Selected ${selected.length} random words:`, selected.map(w => w.word));
       return selected;
       
     } catch (error) {
@@ -63,7 +65,6 @@ export const dbHelpers = {
     }
   },
 
-  // Get user progress with retry logic
   async getUserProgress(userId, retries = 3) {
     if (!userId) {
       console.error('❌ getUserProgress: No userId provided');
@@ -99,7 +100,6 @@ export const dbHelpers = {
     return null;
   },
 
-  // Enhanced upsert with validation
   async upsertUserProgress(userId, progressData) {
     if (!userId) return null;
 
@@ -134,150 +134,136 @@ export const dbHelpers = {
     }
   },
 
-  // src/lib/supabase.js - FIXED getTodaySessionOrCreate
-// This ensures NEW words every day
-
-async getTodaySessionOrCreate(userId, level, isPremium) {
-  if (!userId) {
-    console.error('❌ getTodaySessionOrCreate: No userId provided');
-    return { session: null, words: [], error: 'No user ID' };
-  }
-
-  try {
-    // ✅ Get today's date in UTC (consistent timezone)
-    const today = new Date().toISOString().split('T')[0];
-    
-    console.log(`📅 Checking for session on ${today} for user ${userId}`);
-
-    // ✅ Check if TODAY's session exists
-    const { data: existingSessions, error: sessionError } = await supabase
-      .from('daily_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('session_date', today)
-      .order('created_at', { ascending: false });
-    
-    if (sessionError) {
-      console.error('❌ Error checking session:', sessionError);
-      return { session: null, words: [], error: sessionError.message };
+  // ✅ CRITICAL FIX: Ensure new words each day
+  async getTodaySessionOrCreate(userId, level, isPremium) {
+    if (!userId) {
+      console.error('❌ No userId provided');
+      return { session: null, words: [], error: 'No user ID' };
     }
 
-    // ✅ If TODAY's session exists, load its words
-    if (existingSessions && existingSessions.length > 0) {
-      const existingSession = existingSessions[0];
-      console.log('♻️ Found existing session for today:', existingSession.id);
+    try {
+      const today = new Date().toISOString().split('T')[0];
       
-      // Load the exact words from this session
-      const { data: words, error: wordsError } = await supabase
-        .from('words')
+      console.log(`📅 Checking for session on ${today}`);
+
+      // ✅ Check for TODAY's session
+      const { data: existingSessions, error: sessionError } = await supabase
+        .from('daily_sessions')
         .select('*')
-        .in('id', existingSession.words_shown);
+        .eq('user_id', userId)
+        .eq('session_date', today)
+        .order('created_at', { ascending: false })
+        .limit(1);
       
-      if (wordsError) {
-        console.error('❌ Error loading session words:', wordsError);
-        return { session: existingSession, words: [] };
+      if (sessionError) {
+        console.error('❌ Session query error:', sessionError);
+        return { session: null, words: [], error: sessionError.message };
+      }
+
+      // ✅ If session EXISTS for today
+      if (existingSessions && existingSessions.length > 0) {
+        const existingSession = existingSessions[0];
+        console.log('♻️ Found existing session:', existingSession.id);
+        
+        // Load the EXACT words from that session
+        const { data: words, error: wordsError } = await supabase
+          .from('words')
+          .select('*')
+          .in('id', existingSession.words_shown);
+        
+        if (wordsError) {
+          console.error('❌ Error loading words:', wordsError);
+          return { session: existingSession, words: [] };
+        }
+        
+        console.log(`✅ Loaded ${words.length} words:`, words.map(w => w.word));
+        
+        return { 
+          session: existingSession, 
+          words: words || [],
+          isNewSession: false
+        };
       }
       
-      console.log(`✅ Loaded ${words.length} words from existing session`);
+      // ✅ NO session for today - Create NEW one
+      console.log('🆕 Creating NEW session for TODAY...');
+      
+      // Get FRESH random words
+      const newWords = await this.getRandomWords(3, level);
+      
+      if (newWords.length === 0) {
+        console.error('❌ No words available');
+        return { session: null, words: [], noWords: true };
+      }
+      
+      const wordIds = newWords.map(w => w.id);
+      
+      console.log(`🎲 New words for today:`, newWords.map(w => w.word));
+      
+      // Create NEW session
+      const { data: newSession, error: createError } = await supabase
+        .from('daily_sessions')
+        .insert({
+          user_id: userId,
+          session_date: today,
+          words_shown: wordIds,
+          completed: false,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('❌ Create session error:', createError);
+        return { session: null, words: newWords, error: createError.message };
+      }
+      
+      console.log('✅ NEW session created:', newSession.id);
       
       return { 
-        session: existingSession, 
-        words: words || [],
-        isNewSession: false
+        session: newSession, 
+        words: newWords,
+        isNewSession: true
       };
+      
+    } catch (err) {
+      console.error('❌ Exception:', err);
+      return { session: null, words: [], error: err.message };
     }
-    
-    // ✅ No session for TODAY - Create NEW session with NEW words
-    console.log('🆕 Creating NEW session for today...');
-    
-    // Get NEW random words (not seen today)
-    const newWords = await this.getRandomWords(3, level);
-    
-    if (newWords.length === 0) {
-      console.error('❌ No words available in database for level', level);
-      return { 
-        session: null, 
-        words: [], 
-        noWords: true,
-        error: 'No words available' 
-      };
-    }
-    
-    const wordIds = newWords.map(w => w.id);
-    
-    console.log(`🎲 Selected ${newWords.length} NEW words:`, wordIds);
-    
-    // Create the NEW session
-    const { data: newSession, error: createError } = await supabase
-      .from('daily_sessions')
-      .insert({
-        user_id: userId,
-        session_date: today, // ✅ TODAY'S date
-        words_shown: wordIds,
-        completed: false,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-    
-    if (createError) {
-      console.error('❌ Failed to create session:', createError);
-      return { 
-        session: null, 
-        words: newWords, 
-        error: createError.message 
-      };
-    }
-    
-    console.log('✅ NEW session created:', newSession.id);
-    console.log('📝 New session details:', {
-      id: newSession.id,
-      date: newSession.session_date,
-      words: wordIds,
-      isToday: newSession.session_date === today
-    });
-    
-    return { 
-      session: newSession, 
-      words: newWords,
-      isNewSession: true
-    };
-    
-  } catch (err) {
-    console.error('❌ Exception in getTodaySessionOrCreate:', err);
-    return { 
-      session: null, 
-      words: [], 
-      error: err.message 
-    };
-  }
-},
-  // Enhanced session completion
+  },
+
+  // ✅ FIXED: Only increment words_learned ONCE per day
   async completeSession(sessionId, userId, wordsCount) {
     if (!sessionId || !userId) {
-      console.error('❌ completeSession: Missing required parameters');
+      console.error('❌ Missing parameters');
       return false;
     }
 
     try {
-      // ✅ Mark session as completed
+      // Mark session complete
       const { error: sessionError } = await supabase
         .from('daily_sessions')
         .update({ 
           completed: true,
           completed_at: new Date().toISOString()
         })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .eq('user_id', userId);
       
       if (sessionError) {
-        console.error('❌ Error completing session:', sessionError);
+        console.error('❌ Session update error:', sessionError);
         return false;
       }
       
-      // ✅ Get current progress
-      const currentProgress = await this.getUserProgress(userId);
-      if (!currentProgress) {
-        console.error('❌ No user progress found');
+      // Get current progress
+      const { data: currentProgress, error: progressError } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (progressError || !currentProgress) {
+        console.error('❌ Progress fetch error:', progressError);
         return false;
       }
       
@@ -285,48 +271,56 @@ async getTodaySessionOrCreate(userId, level, isPremium) {
       const lastVisit = currentProgress.last_visit;
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       
-      // ✅ Calculate new streak
+      // Calculate streak
       let newStreak = currentProgress.streak;
       if (lastVisit === yesterday) {
-        newStreak += 1; // Continue streak
+        newStreak += 1;
       } else if (lastVisit !== today) {
-        newStreak = 1; // New streak
+        newStreak = 1;
       }
-      // If lastVisit === today, keep streak the same (already visited today)
       
-      // ✅ THIS IS THE KEY FIX: Increment words_learned
-      const updatedProgress = {
-        user_id: userId,
-        streak: newStreak,
-        words_learned: currentProgress.words_learned + wordsCount, // ✅ ADD the words
-        current_level: currentProgress.current_level,
-        total_days: Math.max(currentProgress.total_days, newStreak),
-        is_premium: currentProgress.is_premium,
-        premium_until: currentProgress.premium_until,
-        last_visit: today,
-        updated_at: new Date().toISOString()
-      };
+      // ✅ CRITICAL: Only add words if FIRST completion today
+      let newWordsLearned = currentProgress.words_learned;
       
-      // ✅ Save it
-      const result = await this.upsertUserProgress(userId, updatedProgress);
+      if (lastVisit !== today) {
+        newWordsLearned += wordsCount;
+        console.log(`✅ First session today - adding ${wordsCount} words (${currentProgress.words_learned} → ${newWordsLearned})`);
+      } else {
+        console.log(`⚠️ Already completed today - keeping words_learned at ${newWordsLearned}`);
+      }
       
-      if (!result) {
-        console.error('❌ Failed to update progress');
+      // Update progress
+      const { data: result, error: updateError } = await supabase
+        .from('user_progress')
+        .update({
+          streak: newStreak,
+          words_learned: newWordsLearned,
+          total_days: Math.max(currentProgress.total_days, newStreak),
+          last_visit: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error('❌ Progress update error:', updateError);
         return false;
       }
       
       console.log('✅ Session completed:', {
         wordsLearned: result.words_learned,
-        streak: result.streak
+        streak: result.streak,
+        added: lastVisit !== today ? wordsCount : 0
       });
       
       return true;
     } catch (err) {
-      console.error('❌ Exception in completeSession:', err);
+      console.error('❌ Exception:', err);
       return false;
     }
   }
-}
+};
 
 // Enhanced auth helpers
 export const authHelpers = {

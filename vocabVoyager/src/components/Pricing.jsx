@@ -2,10 +2,28 @@
 import React from 'react';
 import { CheckCircle, Crown } from 'lucide-react';
 
+import PrivacyPolicy from './legal/PrivacyPolicy';
+import ContactUs from './legal/ContactUs';
+import ReviewDashboard from './ReviewDashboard'; 
+import TermsOfService from './legal/TermsOfService';
 const Pricing = ({ onUpgrade }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+              {/* Header */}
+<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+  <div>
+    <h1
+      className="text-3xl font-bold text-gray-800 cursor-pointer"
+      onClick={() => setCurrentView('dashboard')}
+    >
+      📚 VocabVoyager
+    </h1>
+    <p className="text-gray-600">Smart vocabulary learning platform</p>
+  </div>
+
+</div>
+ 
+<div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
@@ -171,6 +189,8 @@ const Pricing = ({ onUpgrade }) => {
         </div>
       </div>
     </div>
+
+    
   );
 };
 

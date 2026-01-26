@@ -658,308 +658,98 @@ const VocabImprover = () => {
 
   // REPLACE your current landing page section (lines ~620-670) with this:
 
-// Landing page for non-authenticated users
+  // ===============================
+// NON-AUTHENTICATED (GUEST) VIEW
+// ===============================
 if (!user) {
+  const renderGuestView = () => {
+    switch (currentView) {
+      case 'pricing':
+        return <Pricing />;
+      case 'terms':
+        return <TermsOfService />;
+      case 'privacy':
+        return <PrivacyPolicy />;
+      case 'contact':
+        return <ContactUs />;
+      default:
+        return (
+          <>
+            {/* ===== NAV ===== */}
+            <nav className="bg-white shadow-sm border-b">
+              <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📚</span>
+                  <span className="text-xl font-bold">VocabVoyager</span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setCurrentView('pricing')}
+                    className="text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Pricing
+                  </button>
+
+                  <button
+                    onClick={() => setShowAuth(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            </nav>
+
+            {/* ===== LANDING CONTENT ===== */}
+            <div className="max-w-6xl mx-auto px-4 py-16 text-center">
+              <h1 className="text-5xl font-bold mb-6">
+                Master Vocabulary with AI
+              </h1>
+              <p className="text-xl text-gray-600 mb-8">
+                Learn smarter with spaced repetition + AI.
+              </p>
+
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setShowAuth(true)}
+                  className="px-8 py-4 bg-blue-600 text-white rounded-lg font-bold"
+                >
+                  Start Free
+                </button>
+
+                <button
+                  onClick={() => setCurrentView('pricing')}
+                  className="px-8 py-4 bg-yellow-500 text-white rounded-lg font-bold"
+                >
+                  View Pricing
+                </button>
+              </div>
+            </div>
+
+            {/* ===== FOOTER ===== */}
+            <footer className="bg-white border-t py-8">
+              <div className="flex justify-center gap-8 text-sm text-gray-600">
+                <button onClick={() => setCurrentView('pricing')}>Pricing</button>
+                <button onClick={() => setCurrentView('terms')}>Terms</button>
+                <button onClick={() => setCurrentView('privacy')}>Privacy</button>
+                <button onClick={() => setCurrentView('contact')}>Contact</button>
+              </div>
+            </footer>
+
+            {showAuth && <AuthModal />}
+          </>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📚</span>
-            <span className="text-xl font-bold text-gray-800">VocabVoyager</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                setCurrentView('pricing');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="text-gray-600 hover:text-gray-800 font-medium transition-colors"
-            >
-              Pricing
-            </button>
-            <button
-              onClick={() => setShowAuth(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <div className="max-w-6xl mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-800 mb-6">
-            Master Vocabulary with AI
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            VocabVoyager uses scientifically-backed spaced repetition and AI-powered insights to help you learn 450+ advanced vocabulary words effectively.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-4">
-            <button
-              onClick={() => setShowAuth(true)}
-              className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg shadow-lg flex items-center gap-2"
-            >
-              Start Learning Free
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView('pricing');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-colors font-bold text-lg shadow-lg flex items-center gap-2"
-            >
-              <Crown className="w-5 h-5" />
-              View Pricing
-            </button>
-          </div>
-
-          <p className="text-sm text-gray-500">
-            ✅ No credit card required • ✅ Start free forever • ✅ Upgrade anytime
-          </p>
-        </div>
-
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <Brain className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-center">🧠 Smart Learning</h3>
-            <p className="text-gray-600 text-center">
-              Science-backed spaced repetition algorithm ensures you remember words long-term with optimal review timing.
-            </p>
-          </div>
-
-          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <Star className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-center">🤖 AI Assistant</h3>
-            <p className="text-gray-600 text-center">
-              Get personalized learning insights, contextual hints, and adaptive practice questions powered by AI.
-            </p>
-          </div>
-
-          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <Trophy className="w-8 h-8 text-green-600" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-center">📈 Track Progress</h3>
-            <p className="text-gray-600 text-center">
-              Monitor your learning streak, mastered words, and accuracy with detailed analytics dashboard.
-            </p>
-          </div>
-        </div>
-
-        {/* How It Works */}
-        <div className="bg-white rounded-xl shadow-lg p-8 md:p-12 mb-16">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">
-            How VocabVoyager Works
-          </h2>
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                1
-              </div>
-              <h4 className="font-bold mb-2">Sign Up Free</h4>
-              <p className="text-gray-600 text-sm">Create your account in seconds. No payment required.</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                2
-              </div>
-              <h4 className="font-bold mb-2">Learn Daily</h4>
-              <p className="text-gray-600 text-sm">Get 3 new vocabulary words every day with examples.</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                3
-              </div>
-              <h4 className="font-bold mb-2">Review Smart</h4>
-              <p className="text-gray-600 text-sm">Our algorithm schedules reviews when you're about to forget.</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                4
-              </div>
-              <h4 className="font-bold mb-2">Track Growth</h4>
-              <p className="text-gray-600 text-sm">Watch your vocabulary expand with detailed progress stats.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing Preview */}
-        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-8 md:p-12 text-white mb-16">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              🎓 Simple, Transparent Pricing
-            </h2>
-            <p className="text-xl opacity-90">
-              Start free, upgrade when you're ready for advanced features
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <div className="bg-white text-gray-800 rounded-xl p-8">
-              <h3 className="text-2xl font-bold mb-2">Free Forever</h3>
-              <div className="text-4xl font-bold mb-4">KES 0</div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>3 new words daily</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>Level 1 vocabulary (100+ words)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>Basic spaced repetition</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>Progress tracking</span>
-                </li>
-              </ul>
-              <button
-                onClick={() => setShowAuth(true)}
-                className="w-full py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition-colors"
-              >
-                Start Free
-              </button>
-            </div>
-
-            {/* Premium Plan */}
-            <div className="bg-white text-gray-800 rounded-xl p-8 border-4 border-yellow-300 relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-1 rounded-full text-sm font-bold">
-                MOST POPULAR
-              </div>
-              <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                <Crown className="w-6 h-6 text-yellow-500" />
-                Premium
-              </h3>
-              <div className="text-4xl font-bold mb-1">KES 499</div>
-              <div className="text-gray-600 mb-4">per month</div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span className="font-medium">Everything in Free, plus:</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>All 5 levels (450+ words)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>AI Learning Assistant</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>Advanced spaced repetition</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-                  <span>Detailed analytics</span>
-                </li>
-              </ul>
-              <button
-                onClick={() => {
-                  setCurrentView('pricing');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg font-bold hover:from-yellow-500 hover:to-orange-600 transition-colors"
-              >
-                View Full Details
-              </button>
-            </div>
-          </div>
-
-          <p className="text-center text-white/80 text-sm mt-8">
-            💳 Secure payments powered by Pesapal • 🔒 Cancel anytime • ✅ 7-day refund policy
-          </p>
-        </div>
-
-        {/* Social Proof */}
-        <div className="bg-white rounded-xl shadow-lg p-8 md:p-12 text-center mb-8">
-          <h2 className="text-3xl font-bold mb-8 text-gray-800">
-            Trusted by Kenyan Learners
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div>
-              <div className="text-4xl font-bold text-blue-600 mb-2">450+</div>
-              <div className="text-gray-600">Vocabulary Words</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-green-600 mb-2">5</div>
-              <div className="text-gray-600">Difficulty Levels</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-purple-600 mb-2">100%</div>
-              <div className="text-gray-600">AI-Powered</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-white border-t py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600 mb-4">
-            <button 
-              onClick={() => { 
-                setCurrentView('pricing'); 
-                window.scrollTo({ top: 0, behavior: 'smooth' }); 
-              }} 
-              className="hover:text-blue-600 transition-colors"
-            >
-              Pricing
-            </button>
-            <button 
-              onClick={() => { 
-                setCurrentView('terms'); 
-                window.scrollTo({ top: 0, behavior: 'smooth' }); 
-              }} 
-              className="hover:text-blue-600 transition-colors"
-            >
-              Terms of Service
-            </button>
-            <button 
-              onClick={() => { 
-                setCurrentView('privacy'); 
-                window.scrollTo({ top: 0, behavior: 'smooth' }); 
-              }} 
-              className="hover:text-blue-600 transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button 
-              onClick={() => { 
-                setCurrentView('contact'); 
-                window.scrollTo({ top: 0, behavior: 'smooth' }); 
-              }} 
-              className="hover:text-blue-600 transition-colors"
-            >
-              Contact Us
-            </button>
-          </div>
-          <div className="text-center text-xs text-gray-400">
-            <p>© 2026 VocabVoyager • DEXDEV SOLUTIONS</p>
-            <p className="mt-1">🇰🇪 Made in Kenya • Powered by Pesapal Payments</p>
-          </div>
-        </div>
-      </footer>
-
-      {showAuth && <AuthModal />}
+      {renderGuestView()}
     </div>
   );
 }
+
   // Main app for authenticated users
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

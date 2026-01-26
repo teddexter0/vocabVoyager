@@ -43,6 +43,15 @@ const VocabImprover = () => {
   const [learningStats, setLearningStats] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
 
+  useEffect(() => {
+  if (user) {
+    setCurrentView('dashboard');
+  } else {
+    setCurrentView('landing');
+  }
+}, [user]);
+
+
   // Initialize app
   useEffect(() => {
     initializeApp();
@@ -662,6 +671,8 @@ const VocabImprover = () => {
 // NON-AUTHENTICATED (GUEST) VIEW
 // ===============================
 if (!user) {
+  console.log('GUEST VIEW:', currentView);
+
   const renderGuestView = () => {
     switch (currentView) {
       case 'pricing':

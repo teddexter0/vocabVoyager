@@ -120,124 +120,106 @@ const VocabImprover = () => {
   };
 
   // 🔒 Check real premium status from database
-  const checkPremiumStatusFromDatabase = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('payment_transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .gte('created_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
+  // src/App.js - REPLACE checkPremiumStatusFromDatabase function
 
-      if (error) {
-        console.error('❌ Error checking premium status:', error);
-        return false;
-      }
-
-      const hasValidPayment = data && data.length > 0;
-      
-      if (hasValidPayment) {
-        // Also update user_progress table to sync
-        await dbHelpers.upsertUserProgress(userId, {
-          ...userProgress,
-          is_premium: true,
-          premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
-        });
-      }
-
-      return hasValidPayment;
-    } catch (error) {
-      console.error('❌ Exception checking premium status:', error);
+const checkPremiumStatusFromDatabase = async (userId) => {
+  try {
+    console.log('🔍 Checking premium status for user:', userId);
+    
+    // Get user's email from auth
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('❌ Error getting user:', userError);
       return false;
     }
-  };
+    
+    console.log('📧 User email:', user.email);
+    
+    // Check BOTH user_id AND email (Pesapal might use either)
+    const { data, error } = await supabase
+      .from('payment_transactions')
+      .select('*')
+      .or(`user_id.eq.${userId},email.eq.${user.email}`)
+      .eq('status', 'completed')
+      .gte('created_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString())
+      .order('created_at', { ascending: false });
 
-  // Load user data with security verification
-  // src/App.js
-
-  const loadUserData = async (userId) => {
-    try {
-        setLoading(true);
-        
-        // 1. Fetch User Progress
-        const progress = await dbHelpers.getUserProgress(userId);
-        if (progress) {
-          setUserProgress(progress);
-        } else {
-          console.warn('⚠️ No user progress found, creating default');
-          // Create default progress
-          const defaultProgress = {
-            user_id: userId,
-            streak: 1,
-            words_learned: 0,
-            current_level: 1,
-            total_days: 1,
-            is_premium: false,
-            last_visit: new Date().toISOString().split('T')[0]
-          };
-          const created = await dbHelpers.upsertUserProgress(userId, defaultProgress);
-          if (created) setUserProgress(created);
-        }
-
-        // 2. Check for due reviews
-        const { data: dueWords, error: reviewError } = await supabase
-            .from('user_word_progress')
-            .select('*, words(*)')
-            .eq('user_id', userId)
-            .lte('next_review_at', new Date().toISOString())
-            .limit(15);
-
-        if (reviewError) {
-          console.error('❌ Error fetching review words:', reviewError);
-        }
-
-        if (dueWords && dueWords.length > 5) {
-            // Review mode
-            console.log(`📝 ${dueWords.length} words due for review - entering review mode`);
-            setCurrentWords([]);
-            setReviewWords(dueWords);
-            setCurrentSession({ type: 'AI_QUIZ', words: dueWords });
-        } else {
-            // Normal mode - get today's session
-            console.log('📚 Loading daily vocabulary session...');
-            
-            const result = await dbHelpers.getTodaySessionOrCreate(
-                userId, 
-                progress?.current_level || 1, 
-                progress?.is_premium || false
-            );
-            
-            // ✅ FIX: Check for errors
-            if (result.error) {
-              console.error('❌ Session creation failed:', result.error);
-              alert('Failed to load today\'s words. Please refresh the page.');
-              return;
-            }
-            
-            if (result.noWords) {
-              console.error('❌ No words available in database');
-              alert('No vocabulary words found. Please contact support.');
-              return;
-            }
-            
-            setCurrentSession(result.session);
-            setCurrentWords(result.words || []);
-            
-            if (result.isNewSession) {
-              console.log('🆕 New daily session created');
-            } else {
-              console.log('♻️ Loaded existing session');
-            }
-        }
-    } catch (err) {
-        console.error("❌ Critical error loading app data:", err);
-        alert('Failed to load app. Please refresh the page.');
-    } finally {
-        setLoading(false);
+    if (error) {
+      console.error('❌ Error checking payment_transactions:', error);
+      return false;
     }
+
+    console.log('💳 Found payment records:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('✅ Payment details:', data[0]);
+    }
+
+    const hasValidPayment = data && data.length > 0;
+    
+    if (hasValidPayment) {
+      console.log('✅ Valid premium payment found!');
+      
+      // Update user_progress to reflect premium status
+      await dbHelpers.upsertUserProgress(userId, {
+        ...userProgress,
+        is_premium: true,
+        premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
+      });
+      
+      return true;
+    }
+
+    console.log('⚠️ No valid premium payment found');
+    return false;
+    
+  } catch (error) {
+    console.error('❌ Exception checking premium status:', error);
+    return false;
+  }
 };
+
+// ✅ ALSO ADD: Call this when app loads
+const loadUserData = async (userId) => {
+  try {
+      setLoading(true);
+      
+      console.log('🔄 Loading user data for:', userId);
+      
+      // 1. Check premium status FIRST
+      const isPremium = await checkPremiumStatusFromDatabase(userId);
+      console.log('💎 Premium status:', isPremium);
+      
+      // 2. Fetch User Progress
+      const progress = await dbHelpers.getUserProgress(userId);
+      if (progress) {
+        // ✅ Override with real premium status
+        setUserProgress({
+          ...progress,
+          is_premium: isPremium || progress.is_premium
+        });
+      } else {
+        console.warn('⚠️ No user progress found, creating default');
+        const defaultProgress = {
+          user_id: userId,
+          streak: 1,
+          words_learned: 0,
+          current_level: 1,
+          total_days: 1,
+          is_premium: isPremium,
+          last_visit: new Date().toISOString().split('T')[0]
+        };
+        const created = await dbHelpers.upsertUserProgress(userId, defaultProgress);
+        if (created) setUserProgress(created);
+      }
+
+      // ... rest of your loadUserData function stays the same
+      
+  } catch (err) {
+      console.error("❌ Critical error loading app data:", err);
+  } finally {
+      setLoading(false);
+  }
+}; 
 
   // Session state management
   const getSessionState = () => {

@@ -1,10 +1,17 @@
 // vocabVoyager/api/pesapal-callback.js - COMPLETE FILE
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-);
+// Support both naming conventions for the service role key
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing Supabase env vars in callback. Set SUPABASE_SERVICE_ROLE_KEY and REACT_APP_SUPABASE_URL in Vercel.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -29,22 +36,22 @@ export default async function handler(req, res) {
 
     // 🔒 VERIFY PAYMENT WITH PESAPAL
     const isVerified = await verifyPaymentWithPesapal(OrderTrackingId);
-    
+
     if (isVerified.success && isVerified.confirmed) {
       // ✅ PAYMENT VERIFIED - Update database
-      await updatePaymentStatus(OrderTrackingId, 'completed', isVerified.data);
-      
+      await updatePaymentStatus(OrderTrackingId, 'completed', isVerified.data, OrderMerchantReference);
+
       console.log('✅ Payment verified and user upgraded to premium');
-      
+
       // Redirect to success page
       const successUrl = process.env.NODE_ENV === 'production'
         ? `https://${req.headers.host}?payment_success=1&OrderTrackingId=${OrderTrackingId}`
         : `http://localhost:3000?payment_success=1&OrderTrackingId=${OrderTrackingId}`;
-      
+
       res.redirect(302, successUrl);
     } else {
       // ❌ PAYMENT FAILED
-      await updatePaymentStatus(OrderTrackingId, 'failed', isVerified.data);
+      await updatePaymentStatus(OrderTrackingId, 'failed', isVerified.data, OrderMerchantReference);
       
       console.log('❌ Payment verification failed');
       
@@ -126,17 +133,41 @@ async function verifyPaymentWithPesapal(orderTrackingId) {
 }
 
 // 🔒 UPDATE PAYMENT STATUS IN DATABASE
-async function updatePaymentStatus(orderTrackingId, status, paymentData) {
+async function updatePaymentStatus(orderTrackingId, status, paymentData, merchantReference) {
   try {
-    // Find the payment record
-    const { data: payment, error: findError } = await supabase
+    // Find the payment record - try pesapal_tracking_id first, then fall back to order_id
+    let payment = null;
+
+    const { data: byTracking, error: trackingError } = await supabase
       .from('payment_transactions')
       .select('*')
       .eq('pesapal_tracking_id', orderTrackingId)
-      .single();
+      .maybeSingle();
 
-    if (findError) {
-      console.error('❌ Payment record not found:', findError);
+    if (byTracking) {
+      payment = byTracking;
+      console.log('✅ Found payment record by pesapal_tracking_id');
+    } else if (merchantReference) {
+      // Fallback: look up by our own order_id (OrderMerchantReference from Pesapal)
+      const { data: byOrderId, error: orderIdError } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .eq('order_id', merchantReference)
+        .maybeSingle();
+
+      if (byOrderId) {
+        payment = byOrderId;
+        console.log('✅ Found payment record by order_id (fallback)');
+        // Store the tracking id now that we have it
+        await supabase
+          .from('payment_transactions')
+          .update({ pesapal_tracking_id: orderTrackingId })
+          .eq('id', payment.id);
+      }
+    }
+
+    if (!payment) {
+      console.error('❌ Payment record not found for tracking id:', orderTrackingId, 'merchant ref:', merchantReference);
       return false;
     }
 
@@ -163,17 +194,44 @@ async function updatePaymentStatus(orderTrackingId, status, paymentData) {
 
     // If payment completed, update user premium status
     if (status === 'completed') {
-      const { error: progressError } = await supabase
-        .from('user_progress')
-        .upsert({
-          user_id: payment.user_id,
-          is_premium: true,
-          premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString(),
-          updated_at: new Date().toISOString()
-        });
+      const premiumUntil = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString();
 
-      if (progressError) {
-        console.error('❌ Failed to update user premium status:', progressError);
+      // Try UPDATE first (user already has a progress row after sign-up)
+      const { data: updatedRow, error: updateError } = await supabase
+        .from('user_progress')
+        .update({
+          is_premium: true,
+          premium_until: premiumUntil,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', payment.user_id)
+        .select()
+        .single();
+
+      if (updateError || !updatedRow) {
+        // Row doesn't exist yet - upsert with all required fields
+        console.warn('⚠️ user_progress row not found, upserting with defaults');
+        const { error: upsertError } = await supabase
+          .from('user_progress')
+          .upsert({
+            user_id: payment.user_id,
+            streak: 1,
+            words_learned: 0,
+            current_level: 1,
+            total_days: 1,
+            is_premium: true,
+            premium_until: premiumUntil,
+            last_visit: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+        if (upsertError) {
+          console.error('❌ Failed to upsert user premium status:', upsertError);
+        } else {
+          console.log('✅ user_progress created with premium status');
+        }
+      } else {
+        console.log('✅ user_progress updated to premium for user:', payment.user_id);
       }
     }
 

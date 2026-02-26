@@ -212,14 +212,31 @@ const loadUserData = async (userId) => {
         if (created) setUserProgress(created);
       }
 
-      // ... rest of your loadUserData function stays the same
-      
+      // 3. Load today's session and words
+      const level = (progress?.current_level) || 1;
+      const premiumStatus = isPremium || progress?.is_premium || false;
+
+      const { session, words, isNewSession } = await dbHelpers.getTodaySessionOrCreate(
+        userId,
+        level,
+        premiumStatus
+      );
+
+      if (session) {
+        setCurrentSession(session);
+        setShowDefinitions(session.completed);
+      }
+
+      if (words && words.length > 0) {
+        setCurrentWords(words);
+      }
+
   } catch (err) {
       console.error("❌ Critical error loading app data:", err);
   } finally {
       setLoading(false);
   }
-}; 
+};
 
   // Session state management
   const getSessionState = () => {

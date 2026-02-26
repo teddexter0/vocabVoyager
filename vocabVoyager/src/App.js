@@ -189,14 +189,26 @@ const loadUserData = async (userId) => {
       const isPremium = await checkPremiumStatusFromDatabase(userId);
       console.log('💎 Premium status:', isPremium);
       
-      // 2. Fetch User Progress
-      const progress = await dbHelpers.getUserProgress(userId);
+      // 2. Fetch User Progress + sync words_learned from user_word_progress
+      const [progress, stats] = await Promise.all([
+        dbHelpers.getUserProgress(userId),
+        spacedRepetitionService.getLearningStats(userId)
+      ]);
+
+      const actualWordsLearned = stats?.totalWords ?? 0;
+
       if (progress) {
-        // ✅ Override with real premium status
-        setUserProgress({
+        const syncedProgress = {
           ...progress,
-          is_premium: isPremium || progress.is_premium
-        });
+          is_premium: isPremium || progress.is_premium,
+          words_learned: actualWordsLearned
+        };
+        setUserProgress(syncedProgress);
+
+        // Persist the corrected count if it drifted
+        if (progress.words_learned !== actualWordsLearned) {
+          await dbHelpers.upsertUserProgress(userId, syncedProgress);
+        }
       } else {
         console.warn('⚠️ No user progress found, creating default');
         const defaultProgress = {

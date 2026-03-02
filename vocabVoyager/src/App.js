@@ -528,18 +528,45 @@ const loadUserData = async (userId) => {
   // Auth functions
   const handleAuth = async (email, password, isSignUp = false) => {
     try {
-      const { data, error } = isSignUp 
-        ? await authHelpers.signUp(email, password)
-        : await authHelpers.signIn(email, password);
-      
-      if (error) throw error;
-      setShowAuth(false);
-      
+      // Sign-up path is unchanged
       if (isSignUp) {
-        alert('📧 Check your email for verification link!');
+        const { data, error } = await authHelpers.signUp(email, password);
+        if (error) throw error;
+        setShowAuth(false);
+        alert('📧 Check your email for a verification link!');
+        return;
       }
+
+      // --- Smart sign-in ---
+      const { error: signInError } = await authHelpers.signIn(email, password);
+      if (!signInError) {
+        setShowAuth(false);
+        return;
+      }
+
+      // Sign-in failed: probe whether the email is already registered
+      // Supabase returns identities:[] when the email already exists (prevents enumeration)
+      const { data: probeData, error: probeError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password
+      });
+
+      if (probeError) {
+        // Probe failed for an unrelated reason — surface the original sign-in error
+        throw new Error('Incorrect password. Please try again.');
+      }
+
+      if (probeData?.user?.identities?.length === 0) {
+        // Email IS registered — must be a wrong password
+        throw new Error('Incorrect password. Please try again.');
+      }
+
+      // Email was NOT registered — account was just created by the probe
+      setShowAuth(false);
+      alert('✨ No account found for this email — we\'ve created one for you!\n\n📧 Check your email to verify before signing in.');
+
     } catch (error) {
-      alert('Authentication failed: ' + error.message);
+      alert('❌ ' + error.message);
     }
   };
 

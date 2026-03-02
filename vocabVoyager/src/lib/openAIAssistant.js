@@ -196,10 +196,9 @@ Correct: [letter]
     }
   }
 
-  // ✅ FIXED: Better error handling
+  // ✅ FIXED: Parses options and correct answer for interactive quizzes
   parsePracticeQuestions(rawText) {
     try {
-      // Ensure rawText is a string
       if (typeof rawText !== 'string') {
         console.error('parsePracticeQuestions received non-string:', typeof rawText);
         return [];
@@ -210,15 +209,31 @@ Correct: [letter]
 
       sections.forEach((section, index) => {
         const lines = section.trim().split('\n').filter(line => line.trim());
-        if (lines.length > 0) {
-          questions.push({
-            id: index + 1,
-            question: lines[0].trim(),
-            content: section.trim(),
-            type: section.includes('A)') ? 'multiple_choice' : 
-                  section.includes('_____') ? 'fill_blank' : 'context'
-          });
-        }
+        if (lines.length === 0) return;
+
+        const questionText = lines[0].trim();
+
+        // Parse A) B) C) D) options — they may be on one line or separate lines
+        const fullText = section.replace(/\n/g, ' ');
+        const optionRegex = /A\)\s*(.*?)\s*B\)\s*(.*?)\s*C\)\s*(.*?)(?:\s*D\)\s*(.*?))?(?=\s*Correct:|$)/i;
+        const optionMatch = fullText.match(optionRegex);
+        const correctMatch = section.match(/Correct:\s*([A-D])/i);
+
+        const options = optionMatch ? {
+          A: optionMatch[1]?.trim() || '',
+          B: optionMatch[2]?.trim() || '',
+          C: optionMatch[3]?.trim() || '',
+          ...(optionMatch[4] ? { D: optionMatch[4].trim() } : {})
+        } : null;
+
+        questions.push({
+          id: index + 1,
+          question: questionText,
+          options,
+          correctAnswer: correctMatch ? correctMatch[1].toUpperCase() : null,
+          type: options ? 'multiple_choice' :
+                section.includes('_____') ? 'fill_blank' : 'context'
+        });
       });
 
       return questions;

@@ -11,6 +11,8 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [loading, setLoading] = useState({});
   const [chatMessages, setChatMessages] = useState([]);
   const [userMessage, setUserMessage] = useState('');
+  const [practiceAnswers, setPracticeAnswers] = useState({});
+  const [practiceRevealed, setPracticeRevealed] = useState({});
 
   useEffect(() => {
     if (isVisible && userId) {
@@ -84,12 +86,11 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
           userProgress.is_premium ? 'medium' : 'easy'
         );
         
-        setAIContent(prev => ({
-          ...prev,
-          practice: questions
-        }));
+        setAIContent(prev => ({ ...prev, practice: questions }));
+        setPracticeAnswers({});
+        setPracticeRevealed({});
       }
-      
+
     } catch (error) {
       console.error('Error generating practice questions:', error);
     } finally {
@@ -299,33 +300,76 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
               </div>
 
               {aiContent.practice ? (
-                <div className="space-y-4">
-                  {aiContent.practice.questions.map((question, index) => (
-                    <div key={index} className="bg-white rounded-xl p-5 border-2 border-emerald-50 shadow-sm hover:border-emerald-100 transition-colors">
-                      <div className="flex items-start gap-4">
-                        <div className="flex flex-col items-center shrink-0">
-                          <div className="p-2 bg-emerald-100 rounded-lg mb-2">
+                <div className="space-y-5">
+                  {aiContent.practice.questions.map((question, index) => {
+                    const chosen = practiceAnswers[index];
+                    const revealed = practiceRevealed[index];
+                    const isCorrect = chosen === question.correctAnswer;
+                    return (
+                      <div key={index} className="bg-white rounded-xl p-5 border-2 border-emerald-50 shadow-sm">
+                        <div className="flex items-start gap-3 mb-4">
+                          <div className="p-2 bg-emerald-100 rounded-lg shrink-0">
                             <Target className="w-5 h-5 text-emerald-600" />
                           </div>
-                          <span className="text-[10px] font-bold text-emerald-800 uppercase">Q{index + 1}</span>
+                          <p className="text-gray-800 font-medium text-sm md:text-base">
+                            <span className="text-emerald-700 font-bold mr-1">Q{index + 1}.</span>
+                            {question.question}
+                          </p>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-gray-800 font-medium mb-3 text-sm md:text-base">
-                            {question.content}
+
+                        {question.options ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                            {Object.entries(question.options).map(([letter, text]) => {
+                              if (!text) return null;
+                              const isChosen = chosen === letter;
+                              const isAnswer = question.correctAnswer === letter;
+                              let btnClass = 'border-gray-200 bg-gray-50 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50';
+                              if (revealed) {
+                                if (isAnswer) btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold';
+                                else if (isChosen && !isAnswer) btnClass = 'border-red-400 bg-red-50 text-red-700 line-through';
+                              } else if (isChosen) {
+                                btnClass = 'border-emerald-400 bg-emerald-50 text-emerald-800 font-semibold';
+                              }
+                              return (
+                                <button
+                                  key={letter}
+                                  onClick={() => {
+                                    if (!revealed) {
+                                      setPracticeAnswers(prev => ({ ...prev, [index]: letter }));
+                                    }
+                                  }}
+                                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm text-left transition-all ${btnClass}`}
+                                >
+                                  <span className="font-bold shrink-0">{letter})</span>
+                                  <span>{text}</span>
+                                </button>
+                              );
+                            })}
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              question.type === 'multiple_choice' ? 'bg-blue-100 text-blue-700' :
-                              question.type === 'fill_blank' ? 'bg-purple-100 text-purple-700' :
-                              'bg-orange-100 text-orange-700'
-                            }`}>
-                              {question.type.replace('_', ' ')}
-                            </span>
+                        ) : (
+                          <p className="text-sm text-gray-500 italic mb-3">Open-ended question — think about your answer.</p>
+                        )}
+
+                        {question.options && (
+                          <div className="flex items-center gap-3">
+                            {!revealed ? (
+                              <button
+                                onClick={() => setPracticeRevealed(prev => ({ ...prev, [index]: true }))}
+                                disabled={!chosen}
+                                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Check Answer
+                              </button>
+                            ) : (
+                              <span className={`text-sm font-semibold px-3 py-1 rounded-full ${isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                {isCorrect ? '✓ Correct!' : `✗ Answer: ${question.correctAnswer}`}
+                              </span>
+                            )}
                           </div>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-16 text-gray-400">

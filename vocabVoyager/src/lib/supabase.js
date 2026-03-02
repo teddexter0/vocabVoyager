@@ -28,27 +28,37 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 export const dbHelpers = {
-  async getRandomWords(limit = 3, level = 1) {
+  async getRandomWords(limit = 3, level = 1, excludeIds = []) {
     try {
       console.log(`🎲 Fetching ${limit} random words for level ${level}`);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('words')
         .select('*')
-        .eq('level', level)
-        .limit(limit * 5);
+        .eq('level', level);
+
+      if (excludeIds.length > 0) {
+        query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+      }
+
+      const { data, error } = await query.limit(limit * 5);
 
       if (error) {
         console.error('❌ Error fetching random words:', error);
         return [];
       }
 
-      if (!data || data.length === 0) {
+      // If all words at this level have been seen, fall back to full pool
+      const pool = (data && data.length > 0)
+        ? data
+        : await supabase.from('words').select('*').eq('level', level).limit(limit * 5).then(r => r.data || []);
+
+      if (pool.length === 0) {
         console.warn('⚠️ No words found for level', level);
         return [];
       }
 
-      const shuffled = [...data].sort(() => Math.random() - 0.5);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, limit);
 
       console.log(`✅ Selected ${selected.length} random words:`, selected.map(w => w.word));
@@ -178,7 +188,14 @@ export const dbHelpers = {
 
       console.log('🆕 Creating NEW session for TODAY...');
 
-      const newWords = await this.getRandomWords(3, level);
+      // Exclude words the user has already seen to avoid repetition
+      const { data: seenRows } = await supabase
+        .from('user_word_progress')
+        .select('word_id')
+        .eq('user_id', userId);
+      const seenIds = seenRows?.map(r => r.word_id) || [];
+
+      const newWords = await this.getRandomWords(3, level, seenIds);
 
       if (newWords.length === 0) {
         console.error('❌ No words available');

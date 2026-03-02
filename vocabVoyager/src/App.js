@@ -155,17 +155,9 @@ const checkPremiumStatusFromDatabase = async (userId) => {
     }
 
     const hasValidPayment = data && data.length > 0;
-    
+
     if (hasValidPayment) {
       console.log('✅ Valid premium payment found!');
-      
-      // Update user_progress to reflect premium status
-      await dbHelpers.upsertUserProgress(userId, {
-        ...userProgress,
-        is_premium: true,
-        premium_until: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString()
-      });
-      
       return true;
     }
 

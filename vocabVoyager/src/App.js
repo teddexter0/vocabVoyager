@@ -770,11 +770,15 @@ if (!user) {
 
             {/* ===== FOOTER ===== */}
             <footer className="bg-white border-t py-8">
-              <div className="flex justify-center gap-8 text-sm text-gray-600">
+              <div className="flex justify-center gap-8 text-sm text-gray-600 mb-4">
                 <button onClick={() => setCurrentView('pricing')}>Pricing</button>
                 <button onClick={() => setCurrentView('terms')}>Terms</button>
                 <button onClick={() => setCurrentView('privacy')}>Privacy</button>
                 <button onClick={() => setCurrentView('contact')}>Contact</button>
+              </div>
+              <div className="flex justify-center items-center gap-2 text-xs text-gray-400">
+                <span>Developed by</span>
+                <img src="/dexdev-logo.png" alt="DexDev Solutions" className="h-6 w-auto opacity-80" />
               </div>
             </footer>
 
@@ -1117,7 +1121,10 @@ if (!user) {
       Contact
     </button>
   </div>
-  <p className="mt-4 text-xs text-gray-400">© 2026 VocabVoyager</p>
+  <div className="mt-4 flex justify-center items-center gap-2 text-xs text-gray-400">
+    <span>© 2026 VocabVoyager · Developed by</span>
+    <img src="/dexdev-logo.png" alt="DexDev Solutions" className="h-6 w-auto opacity-80" />
+  </div>
 </footer>
       
 {/* AI Assistant Modal */}

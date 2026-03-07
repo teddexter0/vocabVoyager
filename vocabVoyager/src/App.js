@@ -776,9 +776,9 @@ if (!user) {
                 <button onClick={() => setCurrentView('privacy')}>Privacy</button>
                 <button onClick={() => setCurrentView('contact')}>Contact</button>
               </div>
-              <div className="flex justify-center items-center gap-2 text-xs text-gray-400">
-                <span>Developed by</span>
-                <img src="/dexdev-logo.png" alt="DexDev Solutions" className="h-6 w-auto opacity-80" />
+              <div className="flex flex-col items-center gap-2 mt-4">
+                <span className="text-xs text-gray-400">Developed by</span>
+                <img src="/dexdev-logo.png" alt="DexDev Solutions" className="w-full max-w-[260px] h-auto" />
               </div>
             </footer>
 
@@ -1121,9 +1121,9 @@ if (!user) {
       Contact
     </button>
   </div>
-  <div className="mt-4 flex justify-center items-center gap-2 text-xs text-gray-400">
-    <span>© 2026 VocabVoyager · Developed by</span>
-    <img src="/dexdev-logo.png" alt="DexDev Solutions" className="h-6 w-auto opacity-80" />
+  <div className="mt-4 flex flex-col items-center gap-2">
+    <span className="text-xs text-gray-400">© 2026 VocabVoyager · Developed by</span>
+    <img src="/dexdev-logo.png" alt="DexDev Solutions" className="w-full max-w-[260px] h-auto" />
   </div>
 </footer>
       

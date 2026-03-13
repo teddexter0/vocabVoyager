@@ -23,11 +23,13 @@ const Leaderboard = ({ userId }) => {
   const fetchGlobal = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_progress')
         .select('user_id, streak, words_learned, total_days')
         .order('streak', { ascending: false })
         .limit(20);
+
+      if (error) { console.warn('Leaderboard query:', error.message); setGlobalRows([]); setLoading(false); return; }
 
       if (!data) return;
 
@@ -50,11 +52,13 @@ const Leaderboard = ({ userId }) => {
     setLoading(true);
     try {
       // Get accepted friend IDs
-      const { data: friendships } = await supabase
+      const { data: friendships, error: fsErr } = await supabase
         .from('friendships')
         .select('friend_id, requester_id')
         .or(`requester_id.eq.${userId},friend_id.eq.${userId}`)
         .eq('status', 'accepted');
+
+      if (fsErr) { setFriendRows([]); setLoading(false); return; }
 
       if (!friendships || friendships.length === 0) {
         setFriendRows([]);
@@ -86,10 +90,12 @@ const Leaderboard = ({ userId }) => {
     if (!rows.length) return rows;
     try {
       const ids = rows.map(r => r.user_id);
-      const { data: profiles } = await supabase
+      const { data: profiles, error: pErr } = await supabase
         .from('user_profiles')
         .select('user_id, username, display_name')
         .in('user_id', ids);
+
+      if (pErr) return rows.map(r => ({ ...r, displayName: maskEmail(r.user_id) }));
 
       const profileMap = {};
       (profiles || []).forEach(p => { profileMap[p.user_id] = p; });

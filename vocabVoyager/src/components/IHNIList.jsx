@@ -1,10 +1,28 @@
 // src/components/IHNIList.jsx — "I Had No Idea!" 🔥
 // Add a whole list of words you stumbled on and had zero clue about.
-// They get looked up in the word bank and queued for spaced-repetition review.
+// They get looked up in the word bank (fuzzy-matched) and queued for spaced-repetition review.
 import React, { useState } from 'react';
-import { Flame, Search, Plus, CheckCircle, XCircle, Loader, BookOpen, Trash2 } from 'lucide-react';
+import { Flame, Search, Plus, CheckCircle, XCircle, Loader, BookOpen, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { spacedRepetitionService } from '../lib/spacedRepetition';
+
+// ── Levenshtein distance (edit distance) ───────────────────────────────────
+const levenshtein = (a, b) => {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+  return dp[m][n];
+};
+
+// Threshold: allow 1 edit for short words (≤6 chars), 2 for longer
+const fuzzyThreshold = (word) => (word.length <= 6 ? 1 : 2);
+// ────────────────────────────────────────────────────────────────────────────
 
 const IHNIList = ({ userId }) => {
   const [inputText, setInputText] = useState('');
@@ -26,21 +44,51 @@ const IHNIList = ({ userId }) => {
     setSavedCount(0);
 
     try {
-      // Look up each word in the words table
-      const { data: foundWords } = await supabase
+      // Step 1: exact match
+      const { data: exactMatches } = await supabase
         .from('words')
         .select('*')
         .in('word', words);
 
-      const foundMap = {};
-      (foundWords || []).forEach(w => { foundMap[w.word.toLowerCase()] = w; });
+      const exactMap = {};
+      (exactMatches || []).forEach(w => { exactMap[w.word.toLowerCase()] = w; });
 
-      const lookup = words.map(w => ({
-        raw: w,
-        found: !!foundMap[w],
-        wordData: foundMap[w] || null,
-        queued: false
-      }));
+      // Step 2: for words not found exactly, try ILIKE + fuzzy distance client-side
+      const notExact = words.filter(w => !exactMap[w]);
+      let fuzzyMap = {};
+
+      if (notExact.length > 0) {
+        // Fetch a broader candidate set using ILIKE for each missing word (batched)
+        for (const raw of notExact) {
+          const { data: candidates } = await supabase
+            .from('words')
+            .select('*')
+            .ilike('word', `${raw.slice(0, Math.max(3, raw.length - 2))}%`)
+            .limit(20);
+
+          if (candidates && candidates.length > 0) {
+            // Pick the closest match within threshold
+            let best = null, bestDist = Infinity;
+            for (const c of candidates) {
+              const dist = levenshtein(raw, c.word.toLowerCase());
+              if (dist < bestDist && dist <= fuzzyThreshold(raw)) {
+                bestDist = dist;
+                best = c;
+              }
+            }
+            if (best) fuzzyMap[raw] = { wordData: best, dist: bestDist };
+          }
+        }
+      }
+
+      const lookup = words.map(w => {
+        if (exactMap[w]) {
+          return { raw: w, found: true, wordData: exactMap[w], fuzzy: false, queued: false };
+        } else if (fuzzyMap[w]) {
+          return { raw: w, found: true, wordData: fuzzyMap[w].wordData, fuzzy: true, dist: fuzzyMap[w].dist, queued: false };
+        }
+        return { raw: w, found: false, wordData: null, fuzzy: false, queued: false };
+      });
 
       setResults(lookup);
     } catch (err) {
@@ -165,7 +213,14 @@ const IHNIList = ({ userId }) => {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-gray-800">{r.raw}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800">{r.raw}</span>
+                    {r.fuzzy && r.wordData && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
+                        ~{r.wordData.word}
+                      </span>
+                    )}
+                  </div>
                   {r.found && r.wordData && (
                     <p className="text-xs text-gray-500 mt-0.5 truncate">
                       ≈ {r.wordData.synonym} — {r.wordData.definition?.slice(0, 80)}…

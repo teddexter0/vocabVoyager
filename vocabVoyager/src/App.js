@@ -46,6 +46,7 @@ const VocabImprover = () => {
   const [showReviewResult, setShowReviewResult] = useState(false);
   const [learningStats, setLearningStats] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [userDisplayName, setUserDisplayName] = useState('');
 
   useEffect(() => {
   if (user) {
@@ -238,6 +239,32 @@ const loadUserData = async (userId) => {
       if (words && words.length > 0) {
         setCurrentWords(words);
       }
+
+      // 4. Auto-seed user_profiles with Google display name (silently)
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const googleName = authUser?.user_metadata?.full_name
+          || authUser?.user_metadata?.name
+          || '';
+        if (googleName) setUserDisplayName(googleName);
+
+        const { data: existingProfile } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!existingProfile && googleName) {
+          await supabase.from('user_profiles').insert({
+            user_id: userId,
+            display_name: googleName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        } else if (existingProfile?.display_name) {
+          setUserDisplayName(existingProfile.display_name);
+        }
+      } catch { /* user_profiles table not yet created — silent */ }
 
   } catch (err) {
       console.error("❌ Critical error loading app data:", err);
@@ -804,18 +831,20 @@ if (!user) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-  <div>
+<div className="flex flex-wrap justify-between items-center mb-6 gap-3">
+  {/* Brand */}
+  <div className="shrink-0">
     <h1
-      className="text-3xl font-bold text-gray-800 cursor-pointer"
+      className="text-2xl sm:text-3xl font-bold text-gray-800 cursor-pointer leading-tight"
       onClick={() => setCurrentView('dashboard')}
     >
       📚 VocabVoyager
     </h1>
-    <p className="text-gray-600">Smart vocabulary learning platform</p>
+    <p className="text-gray-500 text-xs sm:text-sm">Smart vocabulary learning</p>
   </div>
 
-  <div className="flex items-center gap-2 flex-wrap">
+  {/* Actions — wraps gracefully on narrow screens */}
+  <div className="flex items-center gap-2 flex-wrap justify-end">
     <button
       onClick={() => setCurrentView('ihni')}
       className="flex items-center gap-1.5 px-3 py-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors font-medium text-sm"
@@ -863,9 +892,11 @@ if (!user) {
       </button>
     )}
 
-    <div className="flex items-center gap-2 text-gray-600">
-      <User className="w-4 h-4" />
-      <span className="text-sm">{user.email}</span>
+    <div className="flex items-center gap-2 text-gray-600 min-w-0">
+      <User className="w-4 h-4 shrink-0" />
+      <span className="text-sm truncate max-w-[140px]">
+        {userDisplayName || user.email}
+      </span>
     </div>
 
     <button
@@ -885,7 +916,7 @@ if (!user) {
   {currentView === 'pricing' && <Pricing onUpgrade={handleUpgradeToPremium} isPremium={userProgress.is_premium} />}
   {currentView === 'ihni' && <IHNIList userId={user?.id} />}
   {currentView === 'leaderboard' && <Leaderboard userId={user?.id} />}
-  {currentView === 'friends' && <Friends userId={user?.id} userEmail={user?.email} />}
+  {currentView === 'friends' && <Friends userId={user?.id} userEmail={user?.email} userDisplayName={userDisplayName} />}
   {currentView === 'dashboard' && (
   <div onError={() => setCurrentView('contact')}> 
     <ReviewDashboard userId={user?.id} />
@@ -1088,19 +1119,41 @@ if (!user) {
           )}
         </div>
 
-        {/* App Info */}
-        <div className="bg-white rounded-lg p-6 text-center text-sm text-gray-600">
-          <p className="mb-2">
-            <strong>🧠 Smart Learning:</strong> Scientifically designed spaced repetition with AI insights
-          </p>
-          <p className="mb-2">
-            <strong>📈 Progress:</strong> Level {userProgress.current_level} • {userProgress.words_learned} words learned • {userProgress.streak} day streak
-          </p>
-          <p className="text-xs text-gray-500">
-            {userProgress.is_premium 
-              ? '💎 Premium Account - Full Access to all 450+ words + AI Assistant' 
-              : '🆓 Free Account - Upgrade to unlock 450+ advanced words + AI Assistant'
-            }
+        {/* App Info — styled card */}
+        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-5">
+          {/* decorative blobs */}
+          <div className="pointer-events-none absolute -top-6 -right-6 w-24 h-24 bg-indigo-200/30 rounded-full blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-4 -left-4 w-20 h-20 bg-purple-200/30 rounded-full blur-2xl" />
+
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Stat pills */}
+            <div className="flex flex-wrap gap-2 flex-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-100 rounded-full text-xs font-semibold text-indigo-700 shadow-sm">
+                🧠 Lvl {userProgress.current_level}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-100 rounded-full text-xs font-semibold text-green-700 shadow-sm">
+                📚 {userProgress.words_learned} words
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-orange-100 rounded-full text-xs font-semibold text-orange-600 shadow-sm">
+                🔥 {userProgress.streak}-day streak
+              </span>
+            </div>
+
+            {/* Account badge */}
+            <div className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-sm border ${
+              userProgress.is_premium
+                ? 'bg-yellow-400/20 border-yellow-300 text-yellow-800'
+                : 'bg-white border-gray-200 text-gray-600'
+            }`}>
+              {userProgress.is_premium
+                ? <><span>💎</span> Premium — all 450+ words</>
+                : <><span>🆓</span> Free <span className="font-normal text-gray-400">· upgrade to unlock more</span></>
+              }
+            </div>
+          </div>
+
+          <p className="relative mt-3 text-[11px] text-indigo-400 font-medium tracking-wide">
+            ✦ Spaced repetition · AI-powered insights · Level up every day ✦
           </p>
         </div>
       </div> 

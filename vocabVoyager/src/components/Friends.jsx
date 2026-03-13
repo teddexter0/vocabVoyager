@@ -1,9 +1,10 @@
 // src/components/Friends.jsx — Add friends, see their activity
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Users, Check, X, Loader, Flame, BookOpen, Clock } from 'lucide-react';
+import { UserPlus, Users, Check, X, Loader, Flame, BookOpen, Clock, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import UsernameSetup from './UsernameSetup';
 
-const Friends = ({ userId, userEmail }) => {
+const Friends = ({ userId, userEmail, userDisplayName }) => {
   const [tab, setTab] = useState('friends'); // 'friends' | 'add' | 'requests'
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -14,8 +15,8 @@ const Friends = ({ userId, userEmail }) => {
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
 
-  // My username from profile
   const [myUsername, setMyUsername] = useState('');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -26,22 +27,27 @@ const Friends = ({ userId, userEmail }) => {
   }, [userId]);
 
   const fetchMyProfile = async () => {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('username, display_name')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (data?.username) setMyUsername(data.username);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('username, display_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) return;
+      if (data?.username) setMyUsername(data.username);
+    } catch { /* table not yet created */ }
   };
 
   const fetchFriends = async () => {
     setLoading(true);
     try {
-      const { data: friendships } = await supabase
+      const { data: friendships, error: fsErr } = await supabase
         .from('friendships')
         .select('requester_id, friend_id')
         .or(`requester_id.eq.${userId},friend_id.eq.${userId}`)
         .eq('status', 'accepted');
+
+      if (fsErr) { setFriends([]); setLoading(false); return; }
 
       if (!friendships || friendships.length === 0) {
         setFriends([]);
@@ -87,11 +93,13 @@ const Friends = ({ userId, userEmail }) => {
 
   const fetchRequests = async () => {
     try {
-      const { data } = await supabase
+      const { data, error: rErr } = await supabase
         .from('friendships')
         .select('requester_id, id')
         .eq('friend_id', userId)
         .eq('status', 'pending');
+
+      if (rErr) { setRequests([]); return; }
 
       if (!data || data.length === 0) { setRequests([]); return; }
 
@@ -215,11 +223,35 @@ const Friends = ({ userId, userEmail }) => {
         </div>
       </div>
 
-      {myUsername && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
-          Your username: <span className="font-mono font-semibold text-blue-600">@{myUsername}</span>
-          <span className="text-gray-400 ml-2">— share this so friends can find you</span>
-        </div>
+      {/* Username status bar */}
+      <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-3">
+        {myUsername ? (
+          <div className="text-sm text-gray-600 min-w-0">
+            Your username: <span className="font-mono font-semibold text-blue-600">@{myUsername}</span>
+            <span className="text-gray-400 ml-2 hidden sm:inline">— share this so friends can find you</span>
+          </div>
+        ) : (
+          <p className="text-sm text-amber-700">
+            You need a username before friends can find you.
+          </p>
+        )}
+        <button
+          onClick={() => setShowUsernameModal(true)}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 text-xs font-semibold transition-colors"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          {myUsername ? 'Change' : 'Set username'}
+        </button>
+      </div>
+
+      {showUsernameModal && (
+        <UsernameSetup
+          userId={userId}
+          currentUsername={myUsername}
+          displayName={userDisplayName}
+          onSaved={(newName) => { setMyUsername(newName); setShowUsernameModal(false); }}
+          onClose={() => setShowUsernameModal(false)}
+        />
       )}
 
       {/* Tabs */}

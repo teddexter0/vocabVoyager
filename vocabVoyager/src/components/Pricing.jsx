@@ -6,16 +6,13 @@ import PrivacyPolicy from './legal/PrivacyPolicy';
 import ContactUs from './legal/ContactUs';
 import ReviewDashboard from './ReviewDashboard'; 
 import TermsOfService from './legal/TermsOfService';
-const Pricing = ({ onUpgrade }) => {
+const Pricing = ({ onUpgrade, isPremium }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
               {/* Header */}
 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
   <div>
-    <h1
-      className="text-3xl font-bold text-gray-800 cursor-pointer"
-      onClick={() => setCurrentView('dashboard')}
-    >
+    <h1 className="text-3xl font-bold text-gray-800">
       📚 VocabVoyager
     </h1>
     <p className="text-gray-600">Smart vocabulary learning platform</p>
@@ -119,15 +116,25 @@ const Pricing = ({ onUpgrade }) => {
               </li>
             </ul>
 
-            <button
-              onClick={onUpgrade}
-              className="w-full py-4 px-6 bg-white text-orange-600 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg"
-            >
-              Upgrade to Premium
-            </button>
+            {isPremium ? (
+              <button
+                disabled
+                className="w-full py-4 px-6 bg-white text-emerald-600 rounded-lg font-bold text-lg shadow-lg cursor-default flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Already Premium ✓
+              </button>
+            ) : (
+              <button
+                onClick={onUpgrade}
+                className="w-full py-4 px-6 bg-white text-orange-600 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg"
+              >
+                Upgrade to Premium
+              </button>
+            )}
 
             <p className="text-center text-white/80 text-sm mt-4">
-              Secure payment via Pesapal
+              {isPremium ? 'You have full access — enjoy!' : 'Secure payment via Pesapal'}
             </p>
           </div>
         </div>
@@ -153,7 +160,7 @@ const Pricing = ({ onUpgrade }) => {
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-green-600 font-bold">✓</span>
-                <span><strong>Cancellation:</strong> Cancel anytime from your account settings</span>
+                <span><strong>Cancellation:</strong> Cancel anytime — email support@vocabvoyager.com</span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-green-600 font-bold">✓</span>
@@ -175,7 +182,7 @@ const Pricing = ({ onUpgrade }) => {
             </div>
             <div className="bg-white rounded-lg p-6 shadow-md">
               <h4 className="font-bold text-gray-900 mb-2">Can I cancel anytime?</h4>
-              <p className="text-gray-700">Yes! You can cancel your subscription at any time from your account settings. You'll continue to have access until the end of your current billing period.</p>
+              <p className="text-gray-700">Yes! You can cancel your subscription at any time by emailing support@vocabvoyager.com. You'll continue to have access until the end of your current billing period.</p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-md">
               <h4 className="font-bold text-gray-900 mb-2">What payment methods do you accept?</h4>

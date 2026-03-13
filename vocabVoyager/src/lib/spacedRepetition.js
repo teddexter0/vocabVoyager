@@ -111,38 +111,55 @@ export const spacedRepetitionService = {
 
   async updateWordProgress(userId, wordId, performance) {
     try {
+      // Fetch existing row first so we can increment properly
+      const { data: existing } = await supabase
+        .from('user_word_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('word_id', wordId)
+        .maybeSingle();
+
+      const isCorrect = performance?.isCorrect ?? false;
+      const currentMastery = existing?.mastery_level ?? 0;
+      const newMastery = isCorrect
+        ? Math.min(currentMastery + 1, 5)
+        : Math.max(currentMastery - 1, 0);
+
+      // SM-2-style review intervals (days) indexed by mastery level 0-5
+      const intervals = [1, 2, 4, 7, 14, 30];
       const nextReviewDate = new Date();
-      nextReviewDate.setDate(nextReviewDate.getDate() + 1);
-      
+      nextReviewDate.setDate(nextReviewDate.getDate() + intervals[newMastery]);
+
+      const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('user_word_progress')
         .upsert({
           user_id: userId,
           word_id: wordId,
           next_review_at: nextReviewDate.toISOString(),
-          last_seen_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          times_seen: 1,
-          times_correct: performance?.isCorrect ? 1 : 0,
-          review_count: 1,
-          correct_count: performance?.isCorrect ? 1 : 0,
-          mastery_level: 0,
-          status: 'learning'
+          last_seen_at: now,
+          updated_at: now,
+          times_seen: (existing?.times_seen || 0) + 1,
+          times_correct: (existing?.times_correct || 0) + (isCorrect ? 1 : 0),
+          review_count: (existing?.review_count || 0) + 1,
+          correct_count: (existing?.correct_count || 0) + (isCorrect ? 1 : 0),
+          mastery_level: newMastery,
+          status: newMastery >= 5 ? 'mastered' : 'learning'
         }, {
           onConflict: 'user_id,word_id',
           ignoreDuplicates: false
         })
         .select()
         .maybeSingle();
-      
+
       if (error) {
         console.error('❌ Error updating word progress:', error);
         return null;
       }
-      
-      console.log('✅ Word progress updated');
+
+      console.log('✅ Word progress updated — mastery:', newMastery, '| next review in', intervals[newMastery], 'days');
       return data;
-      
+
     } catch (e) {
       console.error('❌ Exception:', e);
       return null;

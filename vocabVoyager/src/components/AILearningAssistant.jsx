@@ -113,12 +113,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
     setLoading(prev => ({ ...prev, chat: true }));
     
     try {
-      // Generate AI response based on user message
-      const response = await vocabAI.generateMotivationalMessage(userId, {
-        achieved: userMessage,
-        streak: userProgress.streak,
-        summary: `User message: ${userMessage}`
-      });
+      const response = await vocabAI.generateChatResponse(userId, userMessage, userProgress);
       
       const aiMessage = {
         id: Date.now() + 1,

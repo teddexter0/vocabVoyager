@@ -1,6 +1,6 @@
 // src/App.js - COMPLETE VERSION WITH AI INTEGRATION
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader, CreditCard, Brain, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronRight, Target, Calendar, Trophy, BookOpen, User, LogOut, Crown, Star, Loader, CreditCard, Brain, CheckCircle, XCircle, Users } from 'lucide-react';
 import { supabase, dbHelpers, authHelpers } from './lib/supabase';
 import { pesapalService } from './lib/pesapal';
 import { spacedRepetitionService, reviewQuestionGenerator, reviewSessionTypes } from './lib/spacedRepetition';
@@ -8,8 +8,12 @@ import AILearningAssistant from './components/AILearningAssistant';
 import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import ContactUs from './components/legal/ContactUs';
 import ReviewDashboard from './components/ReviewDashboard';
-import Pricing from './components/Pricing';  
+import Pricing from './components/Pricing';
 import TermsOfService from './components/legal/TermsOfService';
+import IHNIList from './components/IHNIList';
+import Leaderboard from './components/Leaderboard';
+import Friends from './components/Friends';
+import DailyWordFact from './components/DailyWordFact';
 
 
 const VocabImprover = () => {
@@ -811,7 +815,29 @@ if (!user) {
     <p className="text-gray-600">Smart vocabulary learning platform</p>
   </div>
 
-  <div className="flex items-center gap-4">
+  <div className="flex items-center gap-2 flex-wrap">
+    <button
+      onClick={() => setCurrentView('ihni')}
+      className="flex items-center gap-1.5 px-3 py-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors font-medium text-sm"
+      title="I Had No Idea!"
+    >
+      🔥 IHNI!
+    </button>
+    <button
+      onClick={() => setCurrentView('leaderboard')}
+      className="flex items-center gap-1.5 px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors font-medium text-sm"
+    >
+      <Trophy className="w-4 h-4" />
+      <span className="hidden sm:inline">Board</span>
+    </button>
+    <button
+      onClick={() => setCurrentView('friends')}
+      className="flex items-center gap-1.5 px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors font-medium text-sm"
+    >
+      <Users className="w-4 h-4" />
+      <span className="hidden sm:inline">Friends</span>
+    </button>
+
     {!userProgress.is_premium && (
       <button
         onClick={handleUpgradeToPremium}
@@ -854,9 +880,12 @@ if (!user) {
 {/* Main */}
 <main className="flex-grow container mx-auto px-4 py-8">
   {currentView === 'privacy' && <PrivacyPolicy />}
-  {currentView === 'contact' && <ContactUs />}
+  {currentView === 'contact' && <ContactUs userId={user?.id} />}
   {currentView === 'terms' && <TermsOfService />}
-  {currentView === 'pricing' && <Pricing onUpgrade={handleUpgradeToPremium} />}
+  {currentView === 'pricing' && <Pricing onUpgrade={handleUpgradeToPremium} isPremium={userProgress.is_premium} />}
+  {currentView === 'ihni' && <IHNIList userId={user?.id} />}
+  {currentView === 'leaderboard' && <Leaderboard userId={user?.id} />}
+  {currentView === 'friends' && <Friends userId={user?.id} userEmail={user?.email} />}
   {currentView === 'dashboard' && (
   <div onError={() => setCurrentView('contact')}> 
     <ReviewDashboard userId={user?.id} />
@@ -1078,48 +1107,25 @@ if (!user) {
       
       {/* Footer - Includes the Terms link */} 
 <footer className="mt-auto py-8 border-t border-gray-200 text-center bg-white/50">
-  <div className="flex justify-center space-x-8 text-sm text-gray-500">
-    <button 
-      onClick={() => {
-        setCurrentView('dashboard');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }} 
-      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
-    >
-      Dashboard
-    </button>
-    <button onClick={() => {
-    setCurrentView('pricing');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    } 
-      }>Pricing</button>
-    <button 
-      onClick={() => {
-        setCurrentView('terms');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }} 
-      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
-    >
-      Terms
-    </button>
-    <button 
-      onClick={() => {
-        setCurrentView('privacy');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }} 
-      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
-    >
-      Privacy
-    </button>
-    <button 
-      onClick={() => {
-        setCurrentView('contact');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }} 
-      className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
-    >
-      Contact
-    </button>
+  <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
+    {[
+      ['dashboard', 'Dashboard'],
+      ['ihni', 'IHNI! 🔥'],
+      ['leaderboard', 'Leaderboard'],
+      ['friends', 'Friends'],
+      ['pricing', 'Pricing'],
+      ['terms', 'Terms'],
+      ['privacy', 'Privacy'],
+      ['contact', 'Contact'],
+    ].map(([view, label]) => (
+      <button
+        key={view}
+        onClick={() => { setCurrentView(view); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        className="hover:text-blue-600 hover:underline cursor-pointer transition-all font-medium"
+      >
+        {label}
+      </button>
+    ))}
   </div>
   <div className="mt-4 flex flex-col items-center gap-2">
     <span className="text-xs text-gray-400">© 2026 VocabVoyager · Developed by</span>
@@ -1136,6 +1142,9 @@ if (!user) {
           onClose={() => setShowAIAssistant(false)}
         />
       )}
+
+      {/* Daily Word Fact popup */}
+      <DailyWordFact userId={user?.id} />
     </div>
   );
 };

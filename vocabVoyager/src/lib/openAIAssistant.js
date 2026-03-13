@@ -243,6 +243,60 @@ Correct: [letter]
     }
   }
 
+  // Proper conversational chat response — actually answers the user's question
+  async generateChatResponse(userId, userMessage, learningContext = {}) {
+    try {
+      const prompt = `You are VocabAI, a friendly vocabulary learning assistant for VocabVoyager.
+
+USER CONTEXT:
+- Words learned: ${learningContext.words_learned || 0}
+- Streak: ${learningContext.streak || 0} days
+- Level: ${learningContext.current_level || 1}
+- Premium: ${learningContext.is_premium ? 'Yes' : 'No'}
+
+USER MESSAGE: "${userMessage}"
+
+Respond helpfully and concisely. If asked about a word, give its meaning, etymology, or usage. If asked for motivation, give it. If asked about their progress, reference their stats. Keep responses to 3-5 sentences max. Be warm and encouraging.`;
+
+      const messages = [{ role: 'user', content: prompt }];
+      const response = await this.makeOpenAIRequest(messages);
+      return { type: 'chat', content: response, timestamp: new Date().toISOString() };
+    } catch (error) {
+      console.error('❌ Chat response error:', error);
+      return {
+        type: 'chat',
+        content: "I'm having a moment — but you're doing great! Ask me about any word or your progress.",
+        error: true
+      };
+    }
+  }
+
+  // Daily word fact — humorous/interesting, etymology or cross-context usage
+  async generateWordFact(word, seenFactIds = []) {
+    try {
+      const avoidNote = seenFactIds.length > 0
+        ? `Do NOT repeat these fact IDs already shown: ${seenFactIds.join(', ')}.`
+        : '';
+
+      const prompt = `Generate a single fascinating, slightly humorous fact about the word "${word.word}" (meaning: ${word.definition}).
+
+${avoidNote}
+
+The fact should be ONE of: origin/etymology, how it's used in a completely different context, a surprising historical usage, or a fun cultural connection. Keep it to 2-3 sentences. Start directly with the fact — no preamble like "Here's a fact:". End with something that makes it memorable.`;
+
+      const messages = [{ role: 'user', content: prompt }];
+      const fact = await this.makeOpenAIRequest(messages);
+      return { word: word.word, fact, timestamp: new Date().toISOString() };
+    } catch (error) {
+      console.error('❌ Word fact error:', error);
+      return {
+        word: word.word,
+        fact: `"${word.word}" shares its roots with "${word.synonym}" — both originally described the same quality before English borrowed one from Latin and kept the other from Old English.`,
+        error: true
+      };
+    }
+  }
+
   // ✅ FIXED: No more .trim() errors
   async generateMotivationalMessage(userId, recentProgress) {
     try {

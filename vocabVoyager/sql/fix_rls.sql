@@ -5,6 +5,7 @@
 -- GRANTS — tables created via SQL Editor don't get auto-grants.
 -- Without these, RLS policies are irrelevant — Supabase returns 403.
 -- ─────────────────────────────────────────────────────────
+grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.user_profiles to anon, authenticated;
 grant select, insert, update, delete on public.friendships   to anon, authenticated;
 grant select, insert, update         on public.word_facts    to anon, authenticated;

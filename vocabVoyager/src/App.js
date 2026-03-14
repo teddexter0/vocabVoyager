@@ -32,6 +32,7 @@ const VocabImprover = () => {
     is_premium: false
   });
   const [showAuth, setShowAuth] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
@@ -91,7 +92,12 @@ const VocabImprover = () => {
     const { data: { subscription } } = authHelpers.onAuthStateChange(
       async (event, session) => {
         console.log('Auth event:', event);
-        
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setShowNewPassword(true);
+          return;
+        }
+
         if (session?.user && session.user.id !== user?.id) {
           setUser(session.user);
           if (authChecked) {
@@ -648,12 +654,14 @@ const loadUserData = async (userId) => {
     }
   };
 
-  // Auth Modal Component (simplified)
+  // Auth Modal Component
   const AuthModal = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
     const [authLoading, setAuthLoading] = useState(false);
+    const [step, setStep] = useState('login'); // 'login' | 'forgot' | 'sent'
+    const [resetMsg, setResetMsg] = useState('');
 
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -662,9 +670,85 @@ const loadUserData = async (userId) => {
       setAuthLoading(false);
     };
 
+    const handleForgotPassword = async (e) => {
+      e.preventDefault();
+      if (!email.trim()) return;
+      setAuthLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin
+      });
+      setAuthLoading(false);
+      if (error) {
+        setResetMsg('Something went wrong. Please try again.');
+      } else {
+        setStep('sent');
+      }
+    };
+
+    if (step === 'sent') {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-8 w-full max-w-sm text-center space-y-4">
+            <div className="text-5xl">📧</div>
+            <h2 className="text-xl font-bold text-gray-800">Check your inbox</h2>
+            <p className="text-gray-500 text-sm">
+              We sent a password reset link to <span className="font-semibold text-gray-700">{email}</span>.
+              Click the link in the email to set a new password.
+            </p>
+            <button
+              onClick={() => setShowAuth(false)}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (step === 'forgot') {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
+            <h2 className="text-xl font-bold text-center text-gray-800">Reset Password</h2>
+            <p className="text-sm text-gray-500 text-center">
+              Enter your email and we'll send you a reset link.
+            </p>
+            <form onSubmit={handleForgotPassword} className="space-y-3">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                autoFocus
+              />
+              {resetMsg && <p className="text-sm text-red-500">{resetMsg}</p>}
+              <button
+                type="submit"
+                disabled={authLoading || !email.trim()}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+              >
+                {authLoading && <Loader className="w-4 h-4 animate-spin" />}
+                Send Reset Link
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep('login')}
+                className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
+              >
+                ← Back to Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+        <div className="bg-white rounded-xl p-6 w-full max-w-sm">
           <h2 className="text-xl font-bold mb-4 text-center">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </h2>
@@ -677,15 +761,28 @@ const loadUserData = async (userId) => {
               className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
-            <input
-              type="password"
-              placeholder="Password (min 6 characters)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              minLength="6"
-              required
-            />
+            <div className="space-y-1">
+              <input
+                type="password"
+                placeholder="Password (min 6 characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                minLength="6"
+                required
+              />
+              {!isSignUp && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setStep('forgot')}
+                    className="text-xs text-blue-500 hover:text-blue-700"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={authLoading}
@@ -707,6 +804,67 @@ const loadUserData = async (userId) => {
               className="w-full py-2 text-gray-600 hover:text-gray-800"
             >
               Cancel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // New Password Modal — shown after user clicks the reset link in their email
+  const NewPasswordModal = () => {
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [msg, setMsg] = useState('');
+
+    const handleSave = async (e) => {
+      e.preventDefault();
+      if (password !== confirm) { setMsg("Passwords don't match."); return; }
+      if (password.length < 6) { setMsg('Password must be at least 6 characters.'); return; }
+      setSaving(true);
+      const { error } = await supabase.auth.updateUser({ password });
+      setSaving(false);
+      if (error) {
+        setMsg(error.message || 'Failed to update password.');
+      } else {
+        setShowNewPassword(false);
+        alert('✅ Password updated! You are now signed in.');
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
+          <h2 className="text-xl font-bold text-center text-gray-800">Set New Password</h2>
+          <form onSubmit={handleSave} className="space-y-3">
+            <input
+              type="password"
+              placeholder="New password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              minLength="6"
+              required
+              autoFocus
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              minLength="6"
+              required
+            />
+            {msg && <p className="text-sm text-red-500">{msg}</p>}
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+            >
+              {saving && <Loader className="w-4 h-4 animate-spin" />}
+              Update Password
             </button>
           </form>
         </div>
@@ -814,6 +972,7 @@ if (!user) {
             </footer>
 
             {showAuth && <AuthModal />}
+            {showNewPassword && <NewPasswordModal />}
           </>
         );
     }
@@ -1198,6 +1357,9 @@ if (!user) {
 
       {/* Daily Word Fact popup */}
       <DailyWordFact userId={user?.id} />
+
+      {/* Password reset modal — shown when user returns via reset email link */}
+      {showNewPassword && <NewPasswordModal />}
     </div>
   );
 };

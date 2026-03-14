@@ -1152,7 +1152,7 @@ if (!user) {
             </div>
           </div>
 
-          <p className="relative mt-3 text-[11px] text-indigo-400 font-medium tracking-wide">
+          <p className="relative mt-3 text-sm text-indigo-500 font-semibold tracking-wide">
             ✦ Spaced repetition · AI-powered insights · Level up every day ✦
           </p>
         </div>

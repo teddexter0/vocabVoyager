@@ -1,24 +1,41 @@
 // src/components/Leaderboard.jsx — Streak & Words social leaderboard
 import React, { useState, useEffect } from 'react';
-import { Trophy, Flame, BookOpen, Crown, Loader, RefreshCw, Users } from 'lucide-react';
+import { Trophy, Flame, BookOpen, Crown, Loader, RefreshCw, Users, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
-const Leaderboard = ({ userId }) => {
-  const [tab, setTab] = useState('global'); // 'global' | 'friends'
+// PostgREST returns HTTP 404 when the table doesn't exist yet
+const isTableMissing = (err) =>
+  err &&
+  (err.message?.toLowerCase().includes('not found') ||
+   err.message?.toLowerCase().includes('does not exist') ||
+   err.code === '42P01');
+
+const SetupNotice = () => (
+  <div className="mb-4 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
+    <div>
+      <p className="font-semibold mb-1">Social tables not set up yet</p>
+      <p className="text-amber-700">
+        Run <code className="bg-amber-100 px-1 rounded text-xs font-mono">sql/setup_new_tables.sql</code> in your
+        Supabase SQL Editor to enable profiles &amp; friends.
+        Scores are live — names will show once tables exist.
+      </p>
+    </div>
+  </div>
+);
+
+const Leaderboard = ({ userId, userDisplayName }) => {
+  const [tab, setTab] = useState('global');
   const [globalRows, setGlobalRows] = useState([]);
   const [friendRows, setFriendRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [myRank, setMyRank] = useState(null);
+  const [profilesMissing, setProfilesMissing] = useState(false);
 
-  useEffect(() => {
-    fetchGlobal();
-  }, []);
-
-  useEffect(() => {
-    if (tab === 'friends' && userId) fetchFriends();
-  }, [tab, userId]);
+  useEffect(() => { fetchGlobal(); }, []);
+  useEffect(() => { if (tab === 'friends' && userId) fetchFriends(); }, [tab, userId]);
 
   const fetchGlobal = async () => {
     setLoading(true);
@@ -29,14 +46,11 @@ const Leaderboard = ({ userId }) => {
         .order('streak', { ascending: false })
         .limit(20);
 
-      if (error) { console.warn('Leaderboard query:', error.message); setGlobalRows([]); setLoading(false); return; }
-
+      if (error) { console.warn('Leaderboard:', error.message); setGlobalRows([]); return; }
       if (!data) return;
 
-      // Fetch display names from profiles if available
       const rows = await enrichWithProfiles(data);
       setGlobalRows(rows);
-
       if (userId) {
         const rank = rows.findIndex(r => r.user_id === userId);
         setMyRank(rank >= 0 ? rank + 1 : null);
@@ -51,25 +65,19 @@ const Leaderboard = ({ userId }) => {
   const fetchFriends = async () => {
     setLoading(true);
     try {
-      // Get accepted friend IDs
       const { data: friendships, error: fsErr } = await supabase
         .from('friendships')
         .select('friend_id, requester_id')
         .or(`requester_id.eq.${userId},friend_id.eq.${userId}`)
         .eq('status', 'accepted');
 
-      if (fsErr) { setFriendRows([]); setLoading(false); return; }
-
-      if (!friendships || friendships.length === 0) {
-        setFriendRows([]);
-        setLoading(false);
-        return;
-      }
+      if (fsErr) { setFriendRows([]); return; }
+      if (!friendships?.length) { setFriendRows([]); return; }
 
       const friendIds = friendships.map(f =>
         f.requester_id === userId ? f.friend_id : f.requester_id
       );
-      friendIds.push(userId); // include self
+      friendIds.push(userId);
 
       const { data } = await supabase
         .from('user_progress')
@@ -77,8 +85,7 @@ const Leaderboard = ({ userId }) => {
         .in('user_id', friendIds)
         .order('streak', { ascending: false });
 
-      const rows = await enrichWithProfiles(data || []);
-      setFriendRows(rows);
+      setFriendRows(await enrichWithProfiles(data || []));
     } catch (err) {
       console.error('Friends leaderboard error:', err);
     } finally {
@@ -88,6 +95,15 @@ const Leaderboard = ({ userId }) => {
 
   const enrichWithProfiles = async (rows) => {
     if (!rows.length) return rows;
+
+    // Apply the current user's real name immediately (we already have it)
+    const applyKnownName = (r) => ({
+      ...r,
+      displayName: r.user_id === userId
+        ? (userDisplayName || `user_${r.user_id.slice(0, 6)}`)
+        : `user_${r.user_id.slice(0, 6)}`
+    });
+
     try {
       const ids = rows.map(r => r.user_id);
       const { data: profiles, error: pErr } = await supabase
@@ -95,24 +111,28 @@ const Leaderboard = ({ userId }) => {
         .select('user_id, username, display_name')
         .in('user_id', ids);
 
-      if (pErr) return rows.map(r => ({ ...r, displayName: maskEmail(r.user_id) }));
+      if (pErr) {
+        if (isTableMissing(pErr)) setProfilesMissing(true);
+        return rows.map(applyKnownName);
+      }
 
+      setProfilesMissing(false);
       const profileMap = {};
       (profiles || []).forEach(p => { profileMap[p.user_id] = p; });
 
       return rows.map(r => ({
         ...r,
-        displayName: profileMap[r.user_id]?.display_name
-          || profileMap[r.user_id]?.username
-          || maskEmail(r.user_id)
+        // Prefer DB profile name, then known prop for self, then fallback
+        displayName:
+          profileMap[r.user_id]?.display_name ||
+          profileMap[r.user_id]?.username ||
+          (r.user_id === userId ? userDisplayName : null) ||
+          `user_${r.user_id.slice(0, 6)}`
       }));
     } catch {
-      return rows.map(r => ({ ...r, displayName: maskEmail(r.user_id) }));
+      return rows.map(applyKnownName);
     }
   };
-
-  // Fallback: show first 6 chars of user_id
-  const maskEmail = (uid) => `user_${(uid || '').slice(0, 6)}`;
 
   const rows = tab === 'global' ? globalRows : friendRows;
 
@@ -135,6 +155,9 @@ const Leaderboard = ({ userId }) => {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Setup notice — only if profiles table is missing */}
+      {profilesMissing && <SetupNotice />}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-5">
@@ -182,8 +205,12 @@ const Leaderboard = ({ userId }) => {
           <div className="grid grid-cols-12 text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">
             <span className="col-span-1">#</span>
             <span className="col-span-5">Name</span>
-            <span className="col-span-3 text-center flex items-center justify-center gap-1"><Flame className="w-3 h-3 text-orange-400" /> Streak</span>
-            <span className="col-span-3 text-center flex items-center justify-center gap-1"><BookOpen className="w-3 h-3 text-green-500" /> Words</span>
+            <span className="col-span-3 text-center flex items-center justify-center gap-1">
+              <Flame className="w-3 h-3 text-orange-400" /> Streak
+            </span>
+            <span className="col-span-3 text-center flex items-center justify-center gap-1">
+              <BookOpen className="w-3 h-3 text-green-500" /> Words
+            </span>
           </div>
 
           <div className="space-y-2">

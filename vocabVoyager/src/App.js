@@ -915,7 +915,7 @@ if (!user) {
   {currentView === 'terms' && <TermsOfService />}
   {currentView === 'pricing' && <Pricing onUpgrade={handleUpgradeToPremium} isPremium={userProgress.is_premium} />}
   {currentView === 'ihni' && <IHNIList userId={user?.id} />}
-  {currentView === 'leaderboard' && <Leaderboard userId={user?.id} />}
+  {currentView === 'leaderboard' && <Leaderboard userId={user?.id} userDisplayName={userDisplayName} />}
   {currentView === 'friends' && <Friends userId={user?.id} userEmail={user?.email} userDisplayName={userDisplayName} />}
   {currentView === 'dashboard' && (
   <div onError={() => setCurrentView('contact')}> 

@@ -11,8 +11,14 @@
 //   • Can be changed any time — old username is immediately freed
 //
 import React, { useState, useEffect, useCallback } from 'react';
-import { AtSign, CheckCircle, XCircle, Loader, X, Pencil } from 'lucide-react';
+import { AtSign, CheckCircle, XCircle, Loader, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const isTableMissing = (err) =>
+  err &&
+  (err.message?.toLowerCase().includes('not found') ||
+   err.message?.toLowerCase().includes('does not exist') ||
+   err.code === '42P01');
 
 const RESERVED = new Set([
   'admin','support','help','vocabvoyager','vocabai','dexdev',
@@ -36,6 +42,7 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
   const [status, setStatus] = useState(null); // null | 'checking' | 'available' | 'taken' | 'error' | 'invalid'
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
+  const [tablesMissing, setTablesMissing] = useState(false);
 
   // Auto-suggest from display name on first open
   useEffect(() => {
@@ -63,7 +70,18 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
         .eq('username', v)
         .maybeSingle();
 
-      if (error) { setStatus('error'); setErrorMsg('Could not check availability.'); return; }
+      if (error) {
+        if (isTableMissing(error)) {
+          setTablesMissing(true);
+          setStatus('error');
+          setErrorMsg('');
+        } else {
+          setStatus('error');
+          setErrorMsg('Could not check availability — try again.');
+        }
+        return;
+      }
+      setTablesMissing(false);
       if (data && data.user_id !== userId) {
         setStatus('taken');
         setErrorMsg(`@${v} is already taken.`);
@@ -97,7 +115,16 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
 
-      if (error) throw error;
+      if (error) {
+        if (isTableMissing(error)) {
+          setTablesMissing(true);
+          setErrorMsg('');
+        } else {
+          setErrorMsg('Failed to save. Please try again.');
+          setStatus('error');
+        }
+        return;
+      }
       onSaved?.(v);
     } catch (err) {
       setErrorMsg('Failed to save. Please try again.');
@@ -134,6 +161,19 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
         </div>
 
         <div className="p-5 space-y-4">
+          {tablesMissing && (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
+              <div>
+                <p className="font-semibold">Database not set up yet</p>
+                <p className="text-amber-700 mt-0.5">
+                  Run <code className="bg-amber-100 px-1 rounded font-mono text-xs">sql/setup_new_tables.sql</code> in your
+                  Supabase SQL Editor first. Usernames and social features will work immediately after.
+                </p>
+              </div>
+            </div>
+          )}
+
           <p className="text-sm text-gray-500">
             Your username is how friends find you. It's unique across all of VocabVoyager.
           </p>

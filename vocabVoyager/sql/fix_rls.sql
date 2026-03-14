@@ -2,6 +2,14 @@
 -- Run in Supabase Dashboard → SQL Editor → New Query
 
 -- ─────────────────────────────────────────────────────────
+-- GRANTS — tables created via SQL Editor don't get auto-grants.
+-- Without these, RLS policies are irrelevant — Supabase returns 403.
+-- ─────────────────────────────────────────────────────────
+grant select, insert, update, delete on public.user_profiles to anon, authenticated;
+grant select, insert, update, delete on public.friendships   to anon, authenticated;
+grant select, insert, update         on public.word_facts    to anon, authenticated;
+
+-- ─────────────────────────────────────────────────────────
 -- user_profiles
 -- ─────────────────────────────────────────────────────────
 drop policy if exists "Users can read all profiles"        on public.user_profiles;

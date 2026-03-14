@@ -16,6 +16,7 @@ const Friends = ({ userId, userEmail, userDisplayName }) => {
   const [actionMsg, setActionMsg] = useState('');
 
   const [myUsername, setMyUsername] = useState('');
+  const [myUsernameChangedAt, setMyUsernameChangedAt] = useState(null);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   useEffect(() => {
@@ -30,11 +31,12 @@ const Friends = ({ userId, userEmail, userDisplayName }) => {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('username, display_name')
+        .select('username, display_name, username_changed_at')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) return;
       if (data?.username) setMyUsername(data.username);
+      if (data?.username_changed_at) setMyUsernameChangedAt(data.username_changed_at);
     } catch { /* table not yet created */ }
   };
 
@@ -248,8 +250,13 @@ const Friends = ({ userId, userEmail, userDisplayName }) => {
         <UsernameSetup
           userId={userId}
           currentUsername={myUsername}
+          lastChangedAt={myUsernameChangedAt}
           displayName={userDisplayName}
-          onSaved={(newName) => { setMyUsername(newName); setShowUsernameModal(false); }}
+          onSaved={(newName) => {
+            setMyUsername(newName);
+            setMyUsernameChangedAt(new Date().toISOString());
+            setShowUsernameModal(false);
+          }}
           onClose={() => setShowUsernameModal(false)}
         />
       )}

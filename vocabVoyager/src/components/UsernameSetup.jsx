@@ -37,12 +37,24 @@ const validate = (raw) => {
   return null; // valid
 };
 
-const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose }) => {
+const COOLDOWN_DAYS = 30;
+
+const daysUntilCanChange = (lastChangedAt) => {
+  if (!lastChangedAt) return 0;
+  const msSince = Date.now() - new Date(lastChangedAt).getTime();
+  const daysSince = msSince / 86400000;
+  return Math.max(0, Math.ceil(COOLDOWN_DAYS - daysSince));
+};
+
+const UsernameSetup = ({ userId, currentUsername, lastChangedAt, displayName, onSaved, onClose }) => {
   const [value, setValue] = useState(currentUsername || '');
   const [status, setStatus] = useState(null); // null | 'checking' | 'available' | 'taken' | 'error' | 'invalid'
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [tablesMissing, setTablesMissing] = useState(false);
+
+  const daysLeft = currentUsername ? daysUntilCanChange(lastChangedAt) : 0;
+  const onCooldown = daysLeft > 0;
 
   // Auto-suggest from display name on first open
   useEffect(() => {
@@ -112,6 +124,7 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
         .upsert({
           user_id: userId,
           username: v,
+          username_changed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
 
@@ -161,6 +174,16 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
         </div>
 
         <div className="p-5 space-y-4">
+          {onCooldown && (
+            <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-blue-400" />
+              <p>
+                You can change your username again in <span className="font-semibold">{daysLeft} day{daysLeft !== 1 ? 's' : ''}</span>.
+                Usernames can only be changed once every {COOLDOWN_DAYS} days.
+              </p>
+            </div>
+          )}
+
           {tablesMissing && (
             <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
               <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
@@ -219,11 +242,11 @@ const UsernameSetup = ({ userId, currentUsername, displayName, onSaved, onClose 
           {/* Save */}
           <button
             onClick={handleSave}
-            disabled={status !== 'available' || saving}
+            disabled={status !== 'available' || saving || onCooldown}
             className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             {saving ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            {saving ? 'Saving…' : currentUsername ? 'Change Username' : 'Claim Username'}
+            {saving ? 'Saving…' : onCooldown ? `Change available in ${daysLeft}d` : currentUsername ? 'Change Username' : 'Claim Username'}
           </button>
         </div>
       </div>

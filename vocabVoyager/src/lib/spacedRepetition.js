@@ -119,7 +119,11 @@ export const spacedRepetitionService = {
         .eq('word_id', wordId)
         .maybeSingle();
 
-      const isCorrect = performance?.isCorrect ?? false;
+      // First encounter: always treat as "learning" regardless of isCorrect flag.
+      // Mastery should only increase after the word has been seen before and
+      // the user is genuinely reviewing it — not just being introduced to it.
+      const isFirstEncounter = !existing;
+      const isCorrect = isFirstEncounter ? false : (performance?.isCorrect ?? false);
       const currentMastery = existing?.mastery_level ?? 0;
       const newMastery = isCorrect
         ? Math.min(currentMastery + 1, 5)

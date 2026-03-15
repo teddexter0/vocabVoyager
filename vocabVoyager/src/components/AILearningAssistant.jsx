@@ -15,7 +15,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [practiceRevealed, setPracticeRevealed] = useState({});
 
   useEffect(() => {
-    if (isVisible && userId) {
+    if (isVisible && userId && !aiContent.insights) {
       loadInitialInsights();
     }
   }, [isVisible, userId]);
@@ -45,15 +45,19 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const generateHints = async () => {
     try {
       setLoading(prev => ({ ...prev, hints: true }));
-      
-      // Get user's current learning words
-      const reviewWords = await spacedRepetitionService.getWordsForReview(userId, 3);
+
+      // Fetch a wider pool then shuffle so we don't always hint the same words
+      const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
+      // Filter out already-mastered words (mastery_level >= 5)
+      const learningWords = pool.filter(rw => (rw.mastery_level ?? 0) < 5);
+      const source = learningWords.length >= 3 ? learningWords : pool;
+      const reviewWords = source.sort(() => Math.random() - 0.5).slice(0, 3);
+
       const hints = [];
-      
       for (const wordProgress of reviewWords) {
         const hint = await vocabAI.generateContextualHint(
-          wordProgress.words, 
-          [], // Could include user's previous mistakes
+          wordProgress.words,
+          [],
           'medium'
         );
         hints.push(hint);
@@ -74,10 +78,11 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const generatePracticeQuestions = async () => {
     try {
       setLoading(prev => ({ ...prev, practice: true }));
-      
-      // Get recent words for practice
-      const reviewWords = await spacedRepetitionService.getWordsForReview(userId, 5);
-      const words = reviewWords.map(rw => rw.words);
+
+      // Fetch wider pool and shuffle so practice varies each time
+      const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
+      const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 5);
+      const words = shuffled.map(rw => rw.words);
       
       if (words.length > 0) {
         const questions = await vocabAI.generatePracticeQuestions(

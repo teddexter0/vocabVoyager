@@ -13,12 +13,25 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [userMessage, setUserMessage] = useState('');
   const [practiceAnswers, setPracticeAnswers] = useState({});
   const [practiceRevealed, setPracticeRevealed] = useState({});
+  // Shared word pool — picked once per session so Hints and Practice use the same words
+  const [sharedWords, setSharedWords] = useState([]);
 
   useEffect(() => {
-    if (isVisible && userId && !aiContent.insights) {
-      loadInitialInsights();
+    if (isVisible && userId) {
+      if (!aiContent.insights) loadInitialInsights();
+      if (sharedWords.length === 0) pickSharedWords();
     }
   }, [isVisible, userId]);
+
+  const pickSharedWords = async () => {
+    try {
+      const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
+      setSharedWords(shuffled);
+    } catch (e) {
+      console.error('pickSharedWords error:', e);
+    }
+  };
 
   const loadInitialInsights = async () => {
     try {
@@ -46,12 +59,16 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
     try {
       setLoading(prev => ({ ...prev, hints: true }));
 
-      // Fetch a wider pool then shuffle so we don't always hint the same words
-      const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
-      // Filter out already-mastered words (mastery_level >= 5)
-      const learningWords = pool.filter(rw => (rw.mastery_level ?? 0) < 5);
-      const source = learningWords.length >= 3 ? learningWords : pool;
-      const reviewWords = source.sort(() => Math.random() - 0.5).slice(0, 3);
+      // Use the shared word set (same as Practice) — fallback if not loaded yet
+      let words = sharedWords;
+      if (!words.length) {
+        const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
+        words = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
+        setSharedWords(words);
+      }
+      // Hints: first 3 from shared set, prefer unmastered
+      const unmastered = words.filter(rw => (rw.mastery_level ?? 0) < 5);
+      const reviewWords = (unmastered.length >= 3 ? unmastered : words).slice(0, 3);
 
       const hints = [];
       for (const wordProgress of reviewWords) {
@@ -79,10 +96,14 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
     try {
       setLoading(prev => ({ ...prev, practice: true }));
 
-      // Fetch wider pool and shuffle so practice varies each time
-      const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
-      const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 5);
-      const words = shuffled.map(rw => rw.words);
+      // Use the shared word set (same as Hints) — fallback if not loaded yet
+      let source = sharedWords;
+      if (!source.length) {
+        const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
+        source = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
+        setSharedWords(source);
+      }
+      const words = source.map(rw => rw.words);
       
       if (words.length > 0) {
         const questions = await vocabAI.generatePracticeQuestions(

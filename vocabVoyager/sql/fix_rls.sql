@@ -40,6 +40,13 @@ create policy "Users can delete own profile"
 alter table public.user_profiles
   add column if not exists username_changed_at timestamptz;
 
+-- daily_fact columns — today's word-of-the-day stored per user in Supabase
+-- so phone and desktop always show the same fact on the same day
+alter table public.user_profiles
+  add column if not exists daily_fact_date date;
+alter table public.user_profiles
+  add column if not exists daily_fact_word_id uuid references public.words(id) on delete set null;
+
 
 -- ─────────────────────────────────────────────────────────
 -- friendships

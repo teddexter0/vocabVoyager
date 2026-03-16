@@ -1,9 +1,10 @@
-// src/components/AILearningAssistant.jsx - AI Assistant Interface
-import React, { useState, useEffect } from 'react';
-import { Brain, MessageCircle, Target, TrendingUp, Lightbulb, Loader, Sparkles, BookOpen } from 'lucide-react';
-// AI logic moved to /api/ai/quiz
+// src/components/AILearningAssistant.jsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Brain, MessageCircle, Target, TrendingUp, Lightbulb, Loader, Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { spacedRepetitionService } from '../lib/spacedRepetition';
 import { vocabAI } from '../lib/openAIAssistant';
+
+const MAX_REFRESHES = 3; // per session
 
 const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [activeTab, setActiveTab] = useState('insights');
@@ -13,41 +14,70 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
   const [userMessage, setUserMessage] = useState('');
   const [practiceAnswers, setPracticeAnswers] = useState({});
   const [practiceRevealed, setPracticeRevealed] = useState({});
-  // Shared word pool — picked once per session so Hints and Practice use the same words
-  const [sharedWords, setSharedWords] = useState([]);
 
+  // One shared word pool for both Hints and Practice — guaranteed to be the same
+  const [sharedWords, setSharedWords] = useState([]);
+  const [wordsLoading, setWordsLoading] = useState(false);
+  const [refreshesLeft, setRefreshesLeft] = useState(MAX_REFRESHES);
+
+  // Track which tabs have been auto-generated so we only fire once per set
+  const generatedFor = useRef({ hints: null, practice: null }); // stores the sharedWords ref
+
+  // ── Pick words when modal first opens ──────────────────────────────────
   useEffect(() => {
     if (isVisible && userId) {
       if (!aiContent.insights) loadInitialInsights();
-      if (sharedWords.length === 0) pickSharedWords();
+      if (sharedWords.length === 0 && !wordsLoading) pickSharedWords();
     }
   }, [isVisible, userId]);
 
+  // ── Auto-generate for active tab whenever words become available ────────
+  useEffect(() => {
+    if (!isVisible || sharedWords.length === 0) return;
+
+    if (activeTab === 'hints' && !aiContent.hints && !loading.hints) {
+      runGenerateHints(sharedWords);
+    }
+    if (activeTab === 'practice' && !aiContent.practice && !loading.practice) {
+      runGeneratePractice(sharedWords);
+    }
+  }, [activeTab, sharedWords, isVisible]); // eslint-disable-line
+
+  // ── Pick a fresh set of shared words ───────────────────────────────────
   const pickSharedWords = async () => {
+    setWordsLoading(true);
     try {
       const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
       const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
       setSharedWords(shuffled);
     } catch (e) {
       console.error('pickSharedWords error:', e);
+    } finally {
+      setWordsLoading(false);
     }
   };
 
+  // ── Refresh: new word set, clear both tabs, decrement quota ────────────
+  const handleNewSet = async () => {
+    if (refreshesLeft <= 0) return;
+    setRefreshesLeft(r => r - 1);
+    setSharedWords([]);
+    setAIContent(prev => ({ ...prev, hints: null, practice: null }));
+    setPracticeAnswers({});
+    setPracticeRevealed({});
+    await pickSharedWords(); // await so words are ready before effect fires
+  };
+
+  // ── Shared word labels (for display) ───────────────────────────────────
+  const wordLabels = sharedWords.map(rw => rw.words?.word).filter(Boolean);
+
+  // ── Insights ───────────────────────────────────────────────────────────
   const loadInitialInsights = async () => {
     try {
       setLoading(prev => ({ ...prev, insights: true }));
-      
-      // Get user's learning stats
       const learningStats = await spacedRepetitionService.getLearningStats(userId);
-      
-      // Generate AI insights
       const insights = await vocabAI.generateLearningInsights(userId, learningStats);
-      
-      setAIContent(prev => ({
-        ...prev,
-        insights: insights
-      }));
-      
+      setAIContent(prev => ({ ...prev, insights }));
     } catch (error) {
       console.error('Error loading AI insights:', error);
     } finally {
@@ -55,36 +85,17 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
     }
   };
 
-  const generateHints = async () => {
+  // ── Hints (uses sharedWords passed as arg to avoid stale closure) ───────
+  const runGenerateHints = async (words) => {
+    if (!words.length) return;
     try {
       setLoading(prev => ({ ...prev, hints: true }));
-
-      // Use the shared word set (same as Practice) — fallback if not loaded yet
-      let words = sharedWords;
-      if (!words.length) {
-        const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
-        words = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
-        setSharedWords(words);
-      }
-      // Hints: first 3 from shared set, prefer unmastered
-      const unmastered = words.filter(rw => (rw.mastery_level ?? 0) < 5);
-      const reviewWords = (unmastered.length >= 3 ? unmastered : words).slice(0, 3);
-
       const hints = [];
-      for (const wordProgress of reviewWords) {
-        const hint = await vocabAI.generateContextualHint(
-          wordProgress.words,
-          [],
-          'medium'
-        );
+      for (const wordProgress of words) {
+        const hint = await vocabAI.generateContextualHint(wordProgress.words, [], 'medium');
         hints.push(hint);
       }
-      
-      setAIContent(prev => ({
-        ...prev,
-        hints: hints
-      }));
-      
+      setAIContent(prev => ({ ...prev, hints }));
     } catch (error) {
       console.error('Error generating hints:', error);
     } finally {
@@ -92,73 +103,39 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
     }
   };
 
-  const generatePracticeQuestions = async () => {
+  // ── Practice (uses sharedWords passed as arg — same set as hints) ───────
+  const runGeneratePractice = async (words) => {
+    if (!words.length) return;
     try {
       setLoading(prev => ({ ...prev, practice: true }));
-
-      // Use the shared word set (same as Hints) — fallback if not loaded yet
-      let source = sharedWords;
-      if (!source.length) {
-        const pool = await spacedRepetitionService.getWordsForReview(userId, 20);
-        source = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
-        setSharedWords(source);
-      }
-      const words = source.map(rw => rw.words);
-      
-      if (words.length > 0) {
-        const questions = await vocabAI.generatePracticeQuestions(
-          words, 
-          userProgress,
-          userProgress.is_premium ? 'medium' : 'easy'
-        );
-        
-        setAIContent(prev => ({ ...prev, practice: questions }));
-        setPracticeAnswers({});
-        setPracticeRevealed({});
-      }
-
+      const wordObjs = words.map(rw => rw.words);
+      const questions = await vocabAI.generatePracticeQuestions(
+        wordObjs,
+        userProgress,
+        userProgress.is_premium ? 'medium' : 'easy'
+      );
+      setAIContent(prev => ({ ...prev, practice: questions }));
+      setPracticeAnswers({});
+      setPracticeRevealed({});
     } catch (error) {
-      console.error('Error generating practice questions:', error);
+      console.error('Error generating practice:', error);
     } finally {
       setLoading(prev => ({ ...prev, practice: false }));
     }
   };
 
+  // ── Chat ────────────────────────────────────────────────────────────────
   const sendChatMessage = async () => {
     if (!userMessage.trim()) return;
-    
-    const newMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: userMessage,
-      timestamp: new Date()
-    };
-    
+    const newMessage = { id: Date.now(), type: 'user', content: userMessage, timestamp: new Date() };
     setChatMessages(prev => [...prev, newMessage]);
     setUserMessage('');
     setLoading(prev => ({ ...prev, chat: true }));
-    
     try {
       const response = await vocabAI.generateChatResponse(userId, userMessage, userProgress);
-      
-      const aiMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: response.content,
-        timestamp: new Date()
-      };
-      
-      setChatMessages(prev => [...prev, aiMessage]);
-      
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      const errorMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: 'I\'m having trouble responding right now, but keep up the great work with your vocabulary learning!',
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, errorMessage]);
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, type: 'ai', content: response.content, timestamp: new Date() }]);
+    } catch {
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, type: 'ai', content: "I'm having a moment — ask me about any word or your progress!", timestamp: new Date() }]);
     } finally {
       setLoading(prev => ({ ...prev, chat: false }));
     }
@@ -166,12 +143,45 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
 
   if (!isVisible) return null;
 
+  // ── Shared header for Hints + Practice tabs ─────────────────────────────
+  const SharedWordHeader = ({ title, color }) => (
+    <div className="flex flex-col gap-2 mb-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        {refreshesLeft > 0 ? (
+          <button
+            onClick={handleNewSet}
+            disabled={wordsLoading || loading.hints || loading.practice}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40
+              ${color === 'amber'
+                ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${wordsLoading ? 'animate-spin' : ''}`} />
+            New Set · {refreshesLeft} left
+          </button>
+        ) : (
+          <span className="text-xs text-gray-400 italic">No refreshes left this session</span>
+        )}
+      </div>
+      {/* Word pills — both tabs show the same words */}
+      {wordLabels.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {wordLabels.map(w => (
+            <span key={w} className="px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200">
+              {w}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-0 md:p-4 z-50 backdrop-blur-sm">
-      {/* Main Container: Full screen on mobile, 5/6 height on desktop */}
       <div className="bg-white rounded-none md:rounded-xl shadow-2xl w-full max-w-4xl h-full md:h-5/6 flex flex-col overflow-hidden">
-        
-        {/* Header - Fixed to top */}
+
+        {/* Header */}
         <div className="flex items-center justify-between p-4 md:p-6 border-b bg-gradient-to-r from-purple-600 to-blue-600 text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg hidden xs:block">
@@ -182,21 +192,18 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
               <p className="text-xs opacity-90">Your personal learning companion</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all active:scale-95"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-all active:scale-95">
             <span className="text-xl md:text-2xl">✕</span>
           </button>
         </div>
 
-        {/* Tabs - Scrollable horizontally on small screens */}
+        {/* Tabs */}
         <div className="flex border-b bg-gray-50 overflow-x-auto no-scrollbar shrink-0">
           {[
             { id: 'insights', label: 'Learning Insights', icon: TrendingUp },
-            { id: 'hints', label: 'Smart Hints', icon: Lightbulb },
-            { id: 'practice', label: 'AI Practice', icon: Target },
-            { id: 'chat', label: 'Ask VocabAI', icon: MessageCircle }
+            { id: 'hints',    label: 'Smart Hints',       icon: Lightbulb  },
+            { id: 'practice', label: 'AI Practice',       icon: Target     },
+            { id: 'chat',     label: 'Ask VocabAI',       icon: MessageCircle },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -216,9 +223,10 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
           })}
         </div>
 
-        {/* Content Area - Independent Scroll */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-white min-h-0">
-          {/* Learning Insights Tab */}
+
+          {/* Learning Insights */}
           {activeTab === 'insights' && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -232,7 +240,6 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                   {loading.insights ? 'Analyzing...' : 'Refresh Analysis'}
                 </button>
               </div>
-
               {aiContent.insights ? (
                 <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 md:p-6 border border-purple-100 shadow-sm">
                   <div className="flex items-start gap-4">
@@ -241,8 +248,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
-                        <Brain className="w-4 h-4 sm:hidden" />
-                        VocabAI Analysis
+                        <Brain className="w-4 h-4 sm:hidden" />VocabAI Analysis
                       </h4>
                       <div className="text-gray-700 whitespace-pre-line leading-relaxed text-sm md:text-base">
                         {aiContent.insights.content}
@@ -265,22 +271,17 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
             </div>
           )}
 
-          {/* Smart Hints Tab */}
+          {/* Smart Hints */}
           {activeTab === 'hints' && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-gray-800">AI-Generated Study Hints</h3>
-                <button
-                  onClick={generateHints}
-                  disabled={loading.hints}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors w-full sm:w-auto shadow-md"
-                >
-                  {loading.hints ? <Loader className="w-4 h-4 animate-spin" /> : <Lightbulb className="w-4 h-4" />}
-                  {loading.hints ? 'Generating...' : 'Get Hints'}
-                </button>
-              </div>
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <SharedWordHeader title="AI-Generated Study Hints" color="amber" />
 
-              {aiContent.hints ? (
+              {loading.hints || wordsLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-amber-500">
+                  <Loader className="w-8 h-8 animate-spin" />
+                  <p className="text-sm text-gray-400">Generating hints for your words…</p>
+                </div>
+              ) : aiContent.hints ? (
                 <div className="grid gap-4">
                   {aiContent.hints.map((hint, index) => (
                     <div key={index} className="bg-amber-50/50 rounded-xl p-4 border border-amber-100 hover:border-amber-200 transition-colors">
@@ -299,28 +300,23 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
               ) : (
                 <div className="text-center py-16 text-gray-400">
                   <Lightbulb className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p className="text-sm">Need a mnemonic? Generate hints for your words.</p>
+                  <p className="text-sm">No review words yet — keep learning to unlock hints!</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* AI Practice Tab */}
+          {/* AI Practice */}
           {activeTab === 'practice' && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-gray-800">AI Practice Questions</h3>
-                <button
-                  onClick={generatePracticeQuestions}
-                  disabled={loading.practice}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors w-full sm:w-auto shadow-md"
-                >
-                  {loading.practice ? <Loader className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
-                  {loading.practice ? 'Creating...' : 'Start Practice'}
-                </button>
-              </div>
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <SharedWordHeader title="AI Practice Questions" color="emerald" />
 
-              {aiContent.practice ? (
+              {loading.practice || wordsLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-emerald-500">
+                  <Loader className="w-8 h-8 animate-spin" />
+                  <p className="text-sm text-gray-400">Building your practice quiz…</p>
+                </div>
+              ) : aiContent.practice ? (
                 <div className="space-y-5">
                   {aiContent.practice.questions.map((question, index) => {
                     const chosen = practiceAnswers[index];
@@ -337,7 +333,6 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                             {question.question}
                           </p>
                         </div>
-
                         {question.options ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                             {Object.entries(question.options).map(([letter, text]) => {
@@ -354,11 +349,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                               return (
                                 <button
                                   key={letter}
-                                  onClick={() => {
-                                    if (!revealed) {
-                                      setPracticeAnswers(prev => ({ ...prev, [index]: letter }));
-                                    }
-                                  }}
+                                  onClick={() => { if (!revealed) setPracticeAnswers(prev => ({ ...prev, [index]: letter })); }}
                                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm text-left transition-all ${btnClass}`}
                                 >
                                   <span className="font-bold shrink-0">{letter})</span>
@@ -368,9 +359,8 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                             })}
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-500 italic mb-3">Open-ended question — think about your answer.</p>
+                          <p className="text-sm text-gray-500 italic mb-3">Open-ended — think about your answer.</p>
                         )}
-
                         {question.options && (
                           <div className="flex items-center gap-3">
                             {!revealed ? (
@@ -395,18 +385,16 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
               ) : (
                 <div className="text-center py-16 text-gray-400">
                   <Target className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p className="text-sm">Ready to test your knowledge? Generate a custom quiz.</p>
+                  <p className="text-sm">No review words yet — keep learning to unlock practice!</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Chat Tab */}
+          {/* Chat */}
           {activeTab === 'chat' && (
             <div className="flex flex-col h-full min-h-[450px] md:min-h-0 animate-in fade-in duration-300">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 shrink-0">Chat with VocabAI</h3>
-              
-              {/* Chat Messages */}
               <div className="flex-1 bg-gray-50/50 rounded-xl p-4 mb-4 overflow-y-auto min-h-0 border border-gray-100 shadow-inner">
                 {chatMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-6">
@@ -418,18 +406,13 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {chatMessages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl text-sm md:text-base shadow-sm ${
-                            message.type === 'user'
-                              ? 'bg-purple-600 text-white rounded-tr-none'
-                              : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
-                          }`}
-                        >
+                    {chatMessages.map(message => (
+                      <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl text-sm md:text-base shadow-sm ${
+                          message.type === 'user'
+                            ? 'bg-purple-600 text-white rounded-tr-none'
+                            : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                        }`}>
                           <p className="whitespace-pre-line leading-relaxed">{message.content}</p>
                           <p className={`text-[10px] mt-1.5 font-medium ${message.type === 'user' ? 'text-purple-200' : 'text-gray-400'}`}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -454,14 +437,12 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                   </div>
                 )}
               </div>
-
-              {/* Chat Input - Stays visible above mobile keyboard */}
               <div className="flex gap-2 p-1 shrink-0">
                 <input
                   type="text"
                   value={userMessage}
-                  onChange={(e) => setUserMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                  onChange={e => setUserMessage(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && sendChatMessage()}
                   placeholder="Ask something..."
                   className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm shadow-sm"
                 />
@@ -477,7 +458,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
           )}
         </div>
 
-        {/* Footer - Stats Bar */}
+        {/* Footer */}
         <div className="border-t bg-gray-50/80 backdrop-blur-sm px-4 md:px-6 py-3 shrink-0">
           <div className="flex items-center justify-between text-[10px] md:text-xs font-bold uppercase tracking-wider text-gray-500">
             <div className="flex items-center gap-2">

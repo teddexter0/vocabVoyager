@@ -1190,28 +1190,37 @@ if (!user) {
           {/* Show words if in learning mode */}
           {getSessionState() === 'ready_to_learn' && (
             <div className="space-y-6">
-              {currentWords.map((wordData, index) => (
-                <div key={wordData.id} className="border-l-4 border-blue-500 pl-6 py-4">
-                  <div className="mb-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mb-2">
-                      <span className="text-3xl font-bold text-gray-800">
-                        {wordData.word}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                          ≈ {wordData.synonym}
-                        </span>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                          Level {wordData.level}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 italic">
-                      Think of it as: "{wordData.synonym}" but with more depth...
-                    </p>
-                  </div>
-                </div>
-              ))}
+            {currentWords.map((wordData, index) => (
+  <div key={wordData.id} className="relative">
+    {/* Index badge */}
+    <div className="flex items-start gap-4 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm mt-1">
+        {index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        {/* Word + badges row */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span style={{fontFamily: "'DM Serif Display', serif"}} className="text-3xl sm:text-4xl text-gray-900 leading-tight">
+            {wordData.word}
+          </span>
+          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold tracking-wide uppercase">
+            Lv {wordData.level}
+          </span>
+        </div>
+        {/* Synonym pill */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Think:</span>
+          <span className="px-3 py-1.5 bg-gradient-to-r from-violet-100 to-purple-100 text-purple-700 rounded-full text-sm font-semibold border border-purple-100">
+            {wordData.synonym}
+          </span>
+        </div>
+        <p className="text-gray-400 text-sm italic">
+          Can you guess the full meaning before revealing?
+        </p>
+      </div>
+    </div>
+  </div>
+))}
               
               <div className="mt-8 text-center">
                 <button
@@ -1229,53 +1238,39 @@ if (!user) {
           )}
 
           {/* Show definitions if just completed */}
-          {getSessionState() === 'just_completed' && (
-            <div className="space-y-6">
-              {currentWords.map((wordData, index) => (
-                <div key={wordData.id} className="border-l-4 border-green-500 pl-6 py-4 bg-green-50">
-                  <div className="mb-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mb-2">
-                      <span className="text-2xl font-bold text-gray-800">
-                        {wordData.word}
-                      </span>
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                        ≈ {wordData.synonym}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="bg-white rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-800 mb-1">Definition:</h4>
-                      <p className="text-gray-700">{wordData.definition}</p>
-                    </div>
-                    
-                    <div className="bg-green-100 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-800 mb-1">Example:</h4>
-                      <p className="text-gray-700 italic">"{wordData.example}"</p>
-                    </div>
-                    
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-800 mb-1">Context:</h4>
-                      <p className="text-gray-700">{wordData.context}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-green-800 mb-2">🎉 Excellent work!</h3>
-                <p className="text-green-700 mb-4">
-                  You've completed today's vocabulary session. These words are now saved to your learning progress and will appear for review based on our smart spaced repetition algorithm. Come back tomorrow for 3 new words!
-                </p>
-                {userProgress.is_premium && (
-                  <p className="text-green-600 text-sm">
-                    💡 <strong>Premium Tip:</strong> Use the AI Assistant to get personalized insights about your learning progress!
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
+          {currentWords.map((wordData, index) => (
+  <div key={wordData.id} className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden">
+    {/* Header strip */}
+    <div className="px-5 pt-5 pb-3 flex flex-wrap items-center gap-2 border-b border-gray-50">
+      <span style={{fontFamily: "'DM Serif Display', serif"}} className="text-3xl text-gray-900">
+        {wordData.word}
+      </span>
+      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+        {wordData.synonym}
+      </span>
+      <span className="ml-auto px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+        Lv {wordData.level}
+      </span>
+    </div>
+    {/* Definition + example */}
+    <div className="p-5 space-y-3">
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Definition</p>
+        <p className="text-gray-800 text-sm leading-relaxed">{wordData.definition}</p>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Example</p>
+        <p className="text-gray-700 text-sm italic leading-relaxed">"{wordData.example}"</p>
+      </div>
+      {wordData.context && (
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Context</p>
+          <p className="text-gray-600 text-sm leading-relaxed">{wordData.context}</p>
+        </div>
+      )}
+    </div>
+  </div>
+))}
         </div>
 
         {/* App Info — styled card */}

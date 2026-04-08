@@ -43,7 +43,7 @@ const Leaderboard = ({ userId, userDisplayName }) => {
       const { data, error } = await supabase
         .from('user_progress')
         .select('user_id, streak, words_learned, total_days')
-        .order('streak', { ascending: false })
+        .order('words_learned', { ascending: false })
         .limit(20);
 
       if (error) { console.warn('Leaderboard:', error.message); setGlobalRows([]); return; }
@@ -83,7 +83,7 @@ const Leaderboard = ({ userId, userDisplayName }) => {
         .from('user_progress')
         .select('user_id, streak, words_learned, total_days')
         .in('user_id', friendIds)
-        .order('streak', { ascending: false });
+        .order('words_learned', { ascending: false })
 
       setFriendRows(await enrichWithProfiles(data || []));
     } catch (err) {

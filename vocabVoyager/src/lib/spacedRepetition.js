@@ -81,10 +81,12 @@ export const spacedRepetitionService = {
       const mastered = words.filter(w => w.mastery_level >= 5).length;
       const due = words.filter(w => new Date(w.next_review_at) <= now).length;
       
-      const totalReviews = words.reduce((sum, w) => sum + (w.review_count || 0), 0);
-      const correctReviews = words.reduce((sum, w) => sum + (w.correct_count || 0), 0);
-      const averageAccuracy = totalReviews > 0 ? correctReviews / totalReviews : 0;
       
+const reviewWords = words.filter(w => (w.times_seen || 0) > 1);
+const totalReviews = reviewWords.reduce((sum, w) => sum + (w.review_count || 0), 0);
+const correctReviews = reviewWords.reduce((sum, w) => sum + (w.correct_count || w.times_correct || 0), 0);
+const averageAccuracy = totalReviews > 0 ? correctReviews / totalReviews : 0;
+
       return {
         mastered,
         averageAccuracy,

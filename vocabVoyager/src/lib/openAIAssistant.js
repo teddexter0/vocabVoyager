@@ -144,57 +144,46 @@ Format: Just give the hint in 1-2 sentences, no extra text.
 
   // ✅ FIXED: Better question parsing
   async generatePracticeQuestions(words, userProfile, difficulty = 'medium') {
-    try {
-      const wordsText = words.map(w => 
-        `${w.word} (${w.synonym}) - ${w.definition}`
-      ).join('\n');
+  try {
+    const wordList = words.map(w =>
+      `WORD: ${w.word} | SYNONYM: ${w.synonym} | DEFINITION: ${w.definition} | EXAMPLE: ${w.example}`
+    ).join('\n');
 
-      const prompt = `
-Create 3 engaging practice questions for these vocabulary words. Adapt difficulty to ${difficulty} level.
+    const prompt = `You are a vocabulary quiz generator. Create exactly ${words.length} CLOZE (fill-in-the-blank) questions — one per word below. Each question must blank out the TARGET WORD in a sentence so the student must recall it.
 
-WORDS:
-${wordsText}
+WORDS TO TEST:
+${wordList}
 
-USER PROFILE:
-- Accuracy: ${Math.round((userProfile.averageAccuracy || 0.7) * 100)}%
-- Level: ${userProfile.current_level || 1}
+STRICT FORMAT — output ONLY this, no extra text:
+Q1: The diplomat's _____ approach avoided conflict without seeming weak.
+A) sycophantic  B) circumspect  C) verbose  D) pernicious
+Correct: B
+TargetWord: circumspect
 
-Create questions that:
-1. Test true understanding, not just memorization
-2. Use different question types (multiple choice, fill-in-blank, context)
-3. Are appropriately challenging for their level
+Q2: [next question]
+...
 
-Format each question as:
-Q1: [question]
-A) [option] B) [option] C) [option] D) [option]
-Correct: [letter]
-`;
+RULES:
+- Blank must replace the exact target word in a natural, contextual sentence
+- The sentence must be different from the example provided — write an original one
+- All 4 options must be plausible vocabulary words (not obviously wrong)
+- Correct answer must be the target word
+- Do NOT add explanations, headers, or any other text`;
 
-      const messages = [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
+    const messages = [{ role: 'user', content: prompt }];
+    const questionsText = await this.makeOpenAIRequest(messages);
 
-      const questionsText = await this.makeOpenAIRequest(messages);
-
-      return {
-        type: 'practice_questions',
-        questions: this.parsePracticeQuestions(questionsText),
-        rawContent: questionsText,
-        timestamp: new Date().toISOString()
-      };
-
-    } catch (error) {
-      console.error('❌ Error generating practice questions:', error);
-      return {
-        type: 'practice_questions',
-        questions: [],
-        error: true
-      };
-    }
+    return {
+      type: 'practice_questions',
+      questions: this.parsePracticeQuestions(questionsText),
+      rawContent: questionsText,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Error generating practice questions:', error);
+    return { type: 'practice_questions', questions: [], error: true };
   }
+}
 
   // ✅ FIXED: Parses options and correct answer for interactive quizzes
   parsePracticeQuestions(rawText) {

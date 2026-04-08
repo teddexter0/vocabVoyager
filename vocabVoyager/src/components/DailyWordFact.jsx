@@ -20,9 +20,13 @@ const DailyWordFact = ({ userId }) => {
   useEffect(() => { if (userId) maybeShowFact(); }, [userId]);
 
   const maybeShowFact = async () => {
-    const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  
+  // LOCAL GATE — fast, no network. If already dismissed today, skip entirely.
+  const localKey = `vv_daily_fact_${today}`;
+  if (localStorage.getItem(localKey)) return;
 
-    try {
+  try {
       // ── Check Supabase for today's word (works across all devices) ──────
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -156,7 +160,11 @@ const DailyWordFact = ({ userId }) => {
 
         <div className="px-5 pb-3.5 flex justify-end">
           <button
-            onClick={() => setVisible(false)}
+          onClick={() => {
+  const today = new Date().toISOString().slice(0, 10);
+  localStorage.setItem(`vv_daily_fact_${today}`, '1');
+  setVisible(false);
+}}
             className="text-xs font-medium text-indigo-400 hover:text-indigo-600 transition-colors"
           >
             Got it ✓

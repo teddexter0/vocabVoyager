@@ -1232,7 +1232,7 @@ if (!user) {
           )}
 
           {/* Show definitions if just completed */}
-          {currentWords.map((wordData, index) => (
+          {getSessionState() === 'just_completed' && currentWords.map((wordData, index) => (
   <div key={wordData.id} className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden">
     {/* Header strip */}
     <div className="px-5 pt-5 pb-3 flex flex-wrap items-center gap-2 border-b border-gray-50">

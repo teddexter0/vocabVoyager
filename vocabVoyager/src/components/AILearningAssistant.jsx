@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Brain, MessageCircle, Target, TrendingUp, Lightbulb, Loader, Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { spacedRepetitionService } from '../lib/spacedRepetition';
 import { vocabAI } from '../lib/openAIAssistant';
+import { supabase } from '../lib/supabase'; 
 
 const MAX_REFRESHES = 3; // per session
 
@@ -317,6 +318,7 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                   <p className="text-sm text-gray-400">Building your practice quiz…</p>
                 </div>
               ) : aiContent.practice ? (
+                // Parse practice questions
                 <div className="space-y-5">
                   {aiContent.practice.questions.map((question, index) => {
                     const chosen = practiceAnswers[index];
@@ -365,12 +367,28 @@ const AILearningAssistant = ({ userId, userProgress, isVisible, onClose }) => {
                           <div className="flex items-center gap-3">
                             {!revealed ? (
                               <button
-                                onClick={() => setPracticeRevealed(prev => ({ ...prev, [index]: true }))}
-                                disabled={!chosen}
-                                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              >
-                                Check Answer
-                              </button>
+  onClick={async () => {
+    setPracticeRevealed(prev => ({ ...prev, [index]: true }));
+    // Actually persist the result to spaced repetition
+    if (userId && question.targetWord) {
+      const { data: wordRow } = await supabase
+        .from('words').select('id').eq('word', question.targetWord).maybeSingle();
+      if (wordRow) {
+        const isRight = chosen === question.correctAnswer;
+        await spacedRepetitionService.updateWordProgress(userId, wordRow.id, {
+          isCorrect: isRight,
+          responseTime: 3000,
+          accuracy: isRight ? 1.0 : 0.0,
+          consecutiveCorrect: isRight ? 1 : 0
+        });
+      }
+    }
+  }}
+  disabled={!chosen}
+  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+>
+  Check Answer
+</button>
                             ) : (
                               <span className={`text-sm font-semibold px-3 py-1 rounded-full ${isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                                 {isCorrect ? '✓ Correct!' : `✗ Answer: ${question.correctAnswer}`}

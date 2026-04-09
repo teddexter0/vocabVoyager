@@ -279,15 +279,16 @@ const loadUserData = async (userId) => {
   }
 };
 
-  // Session state management
+  // Session state 
   const getSessionState = () => {
-    if (loading) return 'loading';
-    if (!currentSession && currentWords.length === 0) return 'no_words';
-    if (currentSession?.completed && showDefinitions) return 'completed_today';
-    if (currentWords.length > 0 && !showDefinitions) return 'ready_to_learn';
-    if (currentWords.length > 0 && showDefinitions) return 'just_completed';
-    return 'unknown';
-  };
+  if (loading) return 'loading';
+  if (!currentSession && currentWords.length === 0) return 'no_words';
+  // showDefinitions is the UI truth — session.completed is the DB record
+  if (currentWords.length > 0 && showDefinitions) return 'just_completed';
+  if (currentSession?.completed && !showDefinitions) return 'completed_today';
+  if (currentWords.length > 0 && !showDefinitions) return 'ready_to_learn';
+  return 'unknown';
+};
 
   // Session status message component
   const SessionStatusMessage = () => {
@@ -616,43 +617,36 @@ const loadUserData = async (userId) => {
   };
 
   const handleRevealDefinitions = async () => {
-    setShowDefinitions(true);
-    
-    if (user && currentSession) {
-      try {
-        const success = await dbHelpers.completeSession(
-          currentSession.id, 
-          user.id, 
-          currentWords.length
-        );
+  // Set definitions visible FIRST before marking session complete
+  setShowDefinitions(true);
+  
+  if (user && currentSession && !currentSession.completed) {
+    try {
+      const success = await dbHelpers.completeSession(
+        currentSession.id, user.id, currentWords.length
+      );
+      if (success) {
+        // Update local session state to completed WITHOUT triggering re-render race
+        setCurrentSession(prev => ({ ...prev, completed: true }));
         
-        if (success) {
-          // ✅ ENHANCED: Record spaced repetition progress for each word
-          for (const word of currentWords) {
-            const performance = {
-              isCorrect: true, // They completed the session
-              responseTime: 5000, // Estimate - could track real time later
+        for (const word of currentWords) {
+          try {
+            await spacedRepetitionService.updateWordProgress(user.id, word.id, {
+              isCorrect: true,
+              responseTime: 5000,
               accuracy: 1.0,
               consecutiveCorrect: 1
-            };
-            
-            try {
-              await spacedRepetitionService.updateWordProgress(user.id, word.id, performance);
-            } catch (srError) {
-              console.log('Spaced repetition will start working once enhanced system is deployed');
-            }
-          }
-          
-          const updatedProgress = await dbHelpers.getUserProgress(user.id);
-          if (updatedProgress) {
-            setUserProgress(updatedProgress);
-          }
+            });
+          } catch (srError) { /* silent */ }
         }
-      } catch (error) {
-        console.error('Error completing session:', error);
+        const updatedProgress = await dbHelpers.getUserProgress(user.id);
+        if (updatedProgress) setUserProgress(updatedProgress);
       }
+    } catch (error) {
+      console.error('Error completing session:', error);
     }
-  };
+  }
+};
 
   // Auth Modal Component
   const AuthModal = () => {

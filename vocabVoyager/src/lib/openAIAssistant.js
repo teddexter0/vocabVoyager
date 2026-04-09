@@ -234,31 +234,59 @@ RULES:
 
   // Proper conversational chat response — actually answers the user's question
   async generateChatResponse(userId, userMessage, learningContext = {}) {
-    try {
-      const prompt = `You are VocabAI, a friendly vocabulary learning assistant for VocabVoyager.
-
-USER CONTEXT:
-- Words learned: ${learningContext.words_learned || 0}
-- Streak: ${learningContext.streak || 0} days
-- Level: ${learningContext.current_level || 1}
-- Premium: ${learningContext.is_premium ? 'Yes' : 'No'}
-
-USER MESSAGE: "${userMessage}"
-
-Respond helpfully and concisely. If asked about a word, give its meaning, etymology, or usage. If asked for motivation, give it. If asked about their progress, reference their stats. Keep responses to 3-5 sentences max. Be warm and encouraging.`;
-
-      const messages = [{ role: 'user', content: prompt }];
-      const response = await this.makeOpenAIRequest(messages);
-      return { type: 'chat', content: response, timestamp: new Date().toISOString() };
-    } catch (error) {
-      console.error('❌ Chat response error:', error);
-      return {
-        type: 'chat',
-        content: "I'm having a moment — but you're doing great! Ask me about any word or your progress.",
-        error: true
-      };
+  try {
+    // Intent detection — route quiz/cloze requests properly
+    const msg = userMessage.toLowerCase();
+    const wantsQuiz = /quiz|cloze|test me|fill.?in|blank|practice|question/.test(msg);
+    
+    if (wantsQuiz && userId) {
+      // Pull their learned words and generate an actual cloze
+      const { data: progressRows } = await supabase
+        .from('user_word_progress')
+        .select('word_id')
+        .eq('user_id', userId)
+        .order('last_seen_at', { ascending: false })
+        .limit(5);
+      
+      if (progressRows?.length) {
+        const wordIds = progressRows.map(r => r.word_id);
+        const { data: wordObjs } = await supabase
+          .from('words').select('*').in('id', wordIds);
+        
+        if (wordObjs?.length) {
+          const result = await this.generatePracticeQuestions(
+            wordObjs, learningContext,
+            learningContext.current_level >= 3 ? 'hard' : 'medium'
+          );
+          return {
+            type: 'chat',
+            content: `Here's a quick cloze test on your recent words:\n\n${result.rawContent}`,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
     }
+
+    // Non-quiz chat — strict prompt that forbids filler
+    const prompt = `You are VocabAI. The user said: "${userMessage}"
+
+Their stats: ${learningContext.words_learned || 0} words learned, streak ${learningContext.streak || 0} days, level ${learningContext.current_level || 1}.
+
+RULES:
+- If they ask about a word: give definition, etymology, 1 example. Max 4 sentences.
+- If they ask for motivation/progress feedback: 2 sentences max. Reference their actual numbers.
+- If they ask something else: answer directly in 3 sentences max.
+- NEVER repeat their question back. NEVER say "great question". NEVER give a preamble.
+- NEVER acknowledge how many words they've learned without being asked — just answer what was asked.
+- If you cannot help with the request, say so in one sentence.`;
+
+    const messages = [{ role: 'user', content: prompt }];
+    const response = await this.makeOpenAIRequest(messages);
+    return { type: 'chat', content: response, timestamp: new Date().toISOString() };
+  } catch (error) {
+    return { type: 'chat', content: "Ask me about any word or say 'quiz me' to get a cloze test.", error: true };
   }
+}
 
   // Daily word fact — humorous/interesting, etymology or cross-context usage
   async generateWordFact(word, seenFactIds = []) {

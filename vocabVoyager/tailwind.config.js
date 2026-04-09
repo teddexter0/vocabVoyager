@@ -6,6 +6,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["'Plus Jakarta Sans'", "sans-serif"],
+        serif: ["'DM Serif Display'", "serif"],
+      },
       animation: {
         'slide-in-from-top': 'slideInFromTop 0.5s ease-out',
       },

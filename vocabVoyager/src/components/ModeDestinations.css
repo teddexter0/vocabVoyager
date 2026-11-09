@@ -1,0 +1,44 @@
+.mode-destinations {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 22px;
+  margin: 0 auto 40px;
+  max-width: 960px;
+}
+.mode-destination {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 320px;
+  max-width: 460px;
+  min-height: 112px;
+  padding: 19px 21px;
+  border: 3px solid #172554;
+  border-radius: 23px 30px 23px 10px;
+  box-shadow: 5px 6px 0 #172554;
+  text-align: left;
+  color: #fff;
+  text-decoration: none;
+  transition: transform .18s, box-shadow .18s;
+  font-family: 'Pacifico', 'Segoe Print', cursive;
+}
+.mode-personal { background: linear-gradient(125deg, #2563eb, #4f46e5); }
+.mode-aave { background: linear-gradient(125deg, #7c3aed, #db2777); }
+.mode-destination:hover { transform: translate(-2px, -3px) rotate(-1deg); box-shadow: 7px 9px 0 #172554; }
+.mode-destination:focus-visible { outline: 4px solid #eab308; outline-offset: 6px; }
+.mode-monogram { display: flex; flex-shrink: 0; transform: rotate(-7deg); border: 2px solid #111; box-shadow: 2px 3px 0 #111; }
+.mode-monogram > span { display: grid; place-items: center; width: 32px; height: 40px; background: #111; color: #fff; font: 15px/1 'Bungee', Impact, sans-serif; letter-spacing: -.8px; }
+.mode-monogram > span:nth-child(2) { background: #fff; color: #111; }
+.mode-copy { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.mode-name { font-size: 32px; line-height: 1.7; letter-spacing: .04em; word-spacing: .1em; text-shadow: 1px 2px 0 #17255466; }
+.mode-description { font-size: 18px; line-height: 1.85; letter-spacing: .025em; color: #f0f9ff; }
+.mode-destination > svg { margin-left: auto; flex-shrink: 0; width: 24px; height: 24px; }
+.voyager-opening { padding: 48px; font: 24px/1.8 'Pacifico', 'Segoe Print', cursive; color: #4338ca; background: #eff6ff; min-height: 100vh; }
+@media (max-width: 640px) {
+  .mode-destinations { gap: 19px; margin-bottom: 35px; }
+  .mode-destination { flex-basis: 100%; padding: 16px; gap: 13px; min-height: 104px; }
+  .mode-name { font-size: 29px; }
+  .mode-description { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) { .mode-destination { transition: none; } }

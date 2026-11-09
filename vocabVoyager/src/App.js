@@ -14,9 +14,11 @@ import IHNIList from './components/IHNIList';
 import Leaderboard from './components/Leaderboard';
 import Friends from './components/Friends';
 import DailyWordFact from './components/DailyWordFact';
+import VocabScreenGuide from './components/VocabScreenGuide';
+import ModeDestinations from './components/ModeDestinations';
 
 
-const VocabImprover = () => {
+const VocabImprover = ({ onPersonal }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
@@ -878,8 +880,6 @@ const loadUserData = async (userId) => {
     );
   }
 
-  // REPLACE your current landing page section (lines ~620-670) with this:
-
   // ===============================
 // NON-AUTHENTICATED (GUEST) VIEW
 // ===============================
@@ -901,7 +901,7 @@ if (!user) {
           <>
             {/* ===== NAV ===== */}
             <nav className="bg-white shadow-sm border-b">
-              <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+              <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">📚</span>
                   <span className="text-xl font-bold">VocabVoyager</span>
@@ -927,14 +927,15 @@ if (!user) {
 
             {/* ===== LANDING CONTENT ===== */}
             <div className="max-w-6xl mx-auto px-4 py-16 text-center">
-              <h1 className="text-5xl font-bold mb-6">
+              <ModeDestinations onPersonal={onPersonal}/>
+              <h1 className="text-3xl sm:text-5xl font-bold mb-6">
                 Master Vocabulary with AI
               </h1>
               <p className="text-xl text-gray-600 mb-8">
                 Learn smarter with spaced repetition + AI.
               </p>
 
-              <div className="flex justify-center gap-4">
+              <div className="flex flex-wrap justify-center gap-4">
                 <button
                   onClick={() => setShowAuth(true)}
                   className="px-8 py-4 bg-blue-600 text-white rounded-lg font-bold"
@@ -953,7 +954,7 @@ if (!user) {
 
             {/* ===== FOOTER ===== */}
             <footer className="bg-white border-t py-8">
-              <div className="flex justify-center gap-8 text-sm text-gray-600 mb-4">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 px-4 text-sm text-gray-600 mb-4">
                 <button onClick={() => setCurrentView('pricing')}>Pricing</button>
                 <button onClick={() => setCurrentView('terms')}>Terms</button>
                 <button onClick={() => setCurrentView('privacy')}>Privacy</button>
@@ -975,6 +976,7 @@ if (!user) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {renderGuestView()}
+      {!showAuth && !showNewPassword && <VocabScreenGuide screen={currentView} />}
     </div>
   );
 }
@@ -983,6 +985,7 @@ if (!user) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
+        <ModeDestinations onPersonal={onPersonal}/>
         {/* Header */}
 <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
   {/* Brand */}
@@ -1266,7 +1269,6 @@ if (!user) {
   </div>
 ))}
         </div>
-
         {/* App Info — styled card */}
         <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-5">
           {/* decorative blobs */}
@@ -1304,7 +1306,7 @@ if (!user) {
             ✦ Spaced repetition · AI-powered insights · Level up every day ✦
           </p>
         </div>
-      </div> 
+      </div>
       
       {/* Footer - Includes the Terms link */} 
 <footer className="mt-auto py-8 border-t border-gray-200 text-center bg-white/50">
@@ -1346,11 +1348,13 @@ if (!user) {
 
       {/* Daily Word Fact popup */}
       <DailyWordFact userId={user?.id} />
+      {!showAIAssistant && !showNewPassword && <VocabScreenGuide screen={reviewMode ? 'review' : currentView} />}
 
       {/* Password reset modal — shown when user returns via reset email link */}
       {showNewPassword && <NewPasswordModal />}
     </div>
   );
 };
+
 
 export default VocabImprover;

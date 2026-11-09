@@ -1,0 +1,20 @@
+.vt-studio { max-width: 68rem; margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); overflow-wrap: anywhere; }
+.vt-studio h1 { font-family: Georgia, serif; font-size: clamp(2rem, 6vw, 4rem); line-height: 1.1; margin: .4em 0 .2em; }
+.vt-studio h2 { font-size: 1.5rem; margin: .8em 0 .4em; }
+.vt-studio h3 { font-weight: 650; margin: .8em 0 .4em; }
+.vt-studio p { margin: .65em 0; }
+.vt-form { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; margin: 1.25rem 0; }
+.vt-form .pv-field { flex: 1 1 16rem; min-width: 0; margin: 0; }
+.vt-chips { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; }
+.vt-chips button { border: 1px solid #746852; border-radius: 999px; padding: .45rem .8rem; min-height: 44px; }
+.vt-chips button[aria-pressed="true"] { background: #e7c58a; color: #252019; border-color: transparent; }
+.vt-studio button:focus-visible, .vt-studio a:focus-visible, .vt-studio summary:focus-visible { outline: 2px solid #bc813b; outline-offset: 3px; }
+.vt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .75rem; }
+.vt-card { border: 1px solid #74685255; border-radius: 1rem; padding: 1rem; margin: .75rem 0; }
+.vt-card blockquote { margin: .6rem 0; border-inline-start: 2px solid #bc813b; padding-inline-start: .7rem; }
+.vt-card dt { font-weight: 650; margin-top: .65rem; }
+.vt-card dd { margin: .15rem 0; }
+.vt-studio details { margin: .75rem 0; }
+.vt-studio summary { cursor: pointer; font-weight: 650; }
+.vt-studio a { text-decoration: underline; }
+.vt-source { font-size: .875rem; }
